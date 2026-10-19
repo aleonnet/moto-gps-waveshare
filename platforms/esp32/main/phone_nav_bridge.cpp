@@ -287,6 +287,15 @@ void PhoneNavBridge::set_sender(SendCallback callback,
   sender_context_ = context;
 }
 
+void PhoneNavBridge::set_language_store(LanguageStoreCallback callback,
+                                        void* context,
+                                        const char* stored_language) {
+  const std::lock_guard<std::mutex> lock(state_mutex_);
+  language_store_ = callback;
+  language_store_context_ = context;
+  stored_language_ = stored_language != nullptr ? stored_language : "";
+}
+
 void PhoneNavBridge::install_ui_callbacks() {
   moto_nav_ui_set_page_change_callback(page_changed, this);
   moto_nav_ui_set_music_command_callback(music_command, this);
@@ -344,9 +353,9 @@ void PhoneNavBridge::on_link_state(bool active) {
       heading_fusion_.reset();
       last_motion_present_ms_ = 0;
       music_page_enabled_ = false;
+      // The display shows its own translated "waiting" text when the phone
+      // media link is down.
       media_state_ = {};
-      media_state_.source_name = "iPhone";
-      media_state_.track_title = "等待连接";
     }
   }
   const std::uint32_t flags = static_cast<std::uint32_t>(RenderNavigation) |
@@ -561,6 +570,8 @@ moto::ble::AckStatus PhoneNavBridge::on_message(
           consume_media(value);
         } else if constexpr (std::is_same_v<T, moto::ble::MapScene>) {
           return consume_map_scene(value);
+        } else if constexpr (std::is_same_v<T, moto::ble::LocaleSelection>) {
+          consume_locale(value);
         } else if constexpr (std::is_same_v<T, moto::ble::Ack>) {
           ESP_LOGD(kTag, "phone ack sequence=%u command=%u status=%u",
                    value.acknowledged_sequence, value.command_id,
@@ -785,6 +796,14 @@ void PhoneNavBridge::consume_media(const moto::ble::MediaState& input) {
   request_render(RenderMedia);
 }
 
+void PhoneNavBridge::consume_locale(const moto::ble::LocaleSelection& input) {
+  {
+    const std::lock_guard<std::mutex> lock(state_mutex_);
+    language_tag_ = input.language_tag;
+  }
+  request_render(RenderLanguage);
+}
+
 moto::ble::AckStatus PhoneNavBridge::consume_map_scene(
     const moto::ble::MapScene& input) {
   std::size_t road_point_count = 0;
@@ -930,6 +949,9 @@ void PhoneNavBridge::render_pending() {
   const bool navigation = (requested & RenderNavigation) != 0U;
   const bool motion = !navigation && (requested & RenderMotion) != 0U;
   const bool media = (requested & RenderMedia) != 0U;
+  const bool language = (requested & RenderLanguage) != 0U;
+  LanguageStoreCallback language_store = nullptr;
+  void* language_store_context = nullptr;
   {
     const std::lock_guard<std::mutex> lock(state_mutex_);
     if (navigation || motion) {
@@ -942,6 +964,11 @@ void PhoneNavBridge::render_pending() {
     }
     if (media) {
       render_media_state_ = media_state_;
+    }
+    if (language) {
+      render_language_tag_ = language_tag_;
+      language_store = language_store_;
+      language_store_context = language_store_context_;
     }
   }
 
@@ -963,6 +990,11 @@ void PhoneNavBridge::render_pending() {
 #endif
     request_render(requested);
     return;
+  }
+  // The language goes first so a combined request draws the new text once.
+  const char* selected_language = nullptr;
+  if (language) {
+    selected_language = moto_nav_ui_set_language(render_language_tag_.c_str());
   }
   if (navigation) {
     moto_nav_ui_set_phone_connection(render_phone_connection_);
@@ -989,6 +1021,13 @@ void PhoneNavBridge::render_pending() {
     moto_nav_ui_set_music_state(&state);
   }
   board_port_unlock();
+
+  if (selected_language != nullptr && stored_language_ != selected_language) {
+    stored_language_ = selected_language;
+    if (language_store != nullptr) {
+      language_store(selected_language, language_store_context);
+    }
+  }
 }
 
 #ifdef ESP_PLATFORM

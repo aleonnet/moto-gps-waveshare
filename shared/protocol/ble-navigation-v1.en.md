@@ -191,6 +191,7 @@ Byte 0 of every logical payload is `payload_revision=1`.
 | `0x12` | TrafficDeviation | phone→device | when traffic or off-route state changes |
 | `0x13` | MediaState | phone→device | track / playback change, progress at most 1 Hz |
 | `0x14` | MapScene | phone→device | after about 100 m of travel, on crossing an offline tile, or on a route change |
+| `0x15` | LocaleSelection | phone→device | after the handshake and whenever the app language changes, ACK_REQUESTED |
 | `0x20` | DeviceCommand | device→phone | user action, ACK_REQUESTED+URGENT |
 
 ## 6. Payload encoding
@@ -210,7 +211,7 @@ u16 heartbeat_interval_ms  >=250
 ```
 
 Capability bits: bit0 navigation, bit1 route geometry, bit2 traffic, bit3 media state, bit4
-touch commands, bit5 music commands, bit6 command ACK, bit7 map scene.
+touch commands, bit5 music commands, bit6 command ACK, bit7 map scene, bit8 locale selection.
 
 ### 6.2 Heartbeat (`0x02`, fixed 11 bytes)
 
@@ -442,6 +443,20 @@ already normalised, so the phone must not infer the direction from the coordinat
 The phone deduplicates by `(session_id, command_id)`; success, failure and duplicates all get an
 Ack reply. A UI action must be ACKed Ok only after a successful commit.
 
+### 6.10 LocaleSelection (`0x15`)
+
+```text
+u8  revision
+u8 + ASCII language_tag    BCP 47, 1..15 bytes: a letter first, then letters, digits and '-'
+```
+
+The phone's interface language, so the display uses the same language as the app. The phone sends
+it only when both sides advertise bit8, right after the handshake and again whenever the app
+language changes; firmware and apps that predate bit8 neither send nor receive it. The device maps
+`pt*` to pt-BR, `zh*` to zh-Hans and any other tag to en-US, applies it immediately and stores it so
+the next boot starts in that language before a phone connects. Road names, instructions and media
+text remain the phone's data and are never translated by the device.
+
 ## 7. Display Snapshot to the shared NavSnapshot
 
 The adapter must do value conversion and must not operate on `moto_ui_state_t` directly. The
@@ -514,6 +529,13 @@ ACK_REQUESTED+URGENT:
 ```text
 b701200d341200000d000112341203ffffff6793
 b701200e341208000d00ff40302010ef35
+```
+
+LocaleSelection payload for `pt-BR`, and its single frame with sequence 2 and ACK_REQUESTED:
+
+```text
+010570742d4252
+b7011507020000000700010570742d42522e44
 ```
 
 The machine-readable complete vectors are authoritative in the fixture. Changing any v1 byte

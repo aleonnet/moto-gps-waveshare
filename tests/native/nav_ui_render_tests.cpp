@@ -8,6 +8,7 @@
 #include <lvgl.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -413,6 +414,225 @@ void test_diagonal_map_pixels_are_independent_of_partial_buffer_height() {
   CHECK(draw_with_buffer(short_buffer) == tall_frame);
 }
 
+bool label_hidden(lv_obj_t* object) {
+  for (lv_obj_t* current = object; current != nullptr;
+       current = lv_obj_get_parent(current)) {
+    if (lv_obj_has_flag(current, LV_OBJ_FLAG_HIDDEN)) return true;
+  }
+  return false;
+}
+
+std::uint32_t next_code_point(const char* text, std::size_t& index) {
+  const auto byte = [&](std::size_t offset) {
+    return static_cast<std::uint32_t>(
+        static_cast<unsigned char>(text[index + offset]));
+  };
+  const std::uint32_t lead = byte(0);
+  std::size_t length = 1;
+  std::uint32_t value = lead;
+  if (lead >= 0xF0) {
+    length = 4;
+    value = lead & 0x07U;
+  } else if (lead >= 0xE0) {
+    length = 3;
+    value = lead & 0x0FU;
+  } else if (lead >= 0xC0) {
+    length = 2;
+    value = lead & 0x1FU;
+  }
+  for (std::size_t i = 1; i < length; ++i) value = (value << 6U) | (byte(i) & 0x3FU);
+  index += length;
+  return value;
+}
+
+struct LabelCheck {
+  std::string language;
+  std::string step;
+  int labels = 0;
+};
+
+// Every label on screen, in every language, must be catalog text (not a
+// fallback tag), drawable by its font chain, on one line within its box and
+// inside the round 466 px panel.
+void check_labels(lv_obj_t* object, LabelCheck& check) {
+  const std::uint32_t children = lv_obj_get_child_count(object);
+  for (std::uint32_t i = 0; i < children; ++i) {
+    check_labels(lv_obj_get_child(object, static_cast<int32_t>(i)), check);
+  }
+  if (!lv_obj_check_type(object, &lv_label_class) || label_hidden(object)) return;
+  const char* text = lv_label_get_text(object);
+  if (text == nullptr || text[0] == '\0') return;
+  ++check.labels;
+  const std::string where = check.language + " / " + check.step + ": \"" + text + "\"";
+
+  if (std::strncmp(text, "device.", 7) == 0) {
+    std::cerr << where << " is an untranslated catalog tag\n";
+    ++failures;
+  }
+
+  const lv_font_t* font = lv_obj_get_style_text_font(object, LV_PART_MAIN);
+  for (std::size_t index = 0; text[index] != '\0';) {
+    const std::uint32_t letter = next_code_point(text, index);
+    lv_font_glyph_dsc_t glyph{};
+    if (letter != ' ' &&
+        (!lv_font_get_glyph_dsc(font, &glyph, letter, 0) || glyph.is_placeholder)) {
+      std::cerr << where << " has no glyph for U+" << std::hex << letter
+                << std::dec << '\n';
+      ++failures;
+    }
+  }
+
+  // Data fields (track names) may be cut with an ellipsis by design.
+  if (lv_label_get_long_mode(object) == LV_LABEL_LONG_DOT) return;
+
+  lv_point_t size{};
+  lv_text_get_size(&size, text, font,
+                   lv_obj_get_style_text_letter_space(object, LV_PART_MAIN),
+                   lv_obj_get_style_text_line_space(object, LV_PART_MAIN),
+                   LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+  lv_area_t box;
+  lv_obj_get_content_coords(object, &box);
+  const int32_t box_width = lv_area_get_width(&box);
+  if (size.x > box_width) {
+    std::cerr << where << " needs " << size.x << " px but has " << box_width
+              << " px\n";
+    ++failures;
+  }
+  lv_obj_t* parent = lv_obj_get_parent(object);
+  if (lv_obj_check_type(parent, &lv_button_class) &&
+      size.x > lv_obj_get_content_width(parent)) {
+    std::cerr << where << " needs " << size.x << " px but its button has "
+              << lv_obj_get_content_width(parent) << " px\n";
+    ++failures;
+  }
+
+  // The visible text is centred inside wider fixed-width labels.
+  const int32_t left = lv_obj_get_style_text_align(object, LV_PART_MAIN) ==
+                               LV_TEXT_ALIGN_CENTER
+                           ? box.x1 + (box_width - size.x) / 2
+                           : box.x1;
+  const double centre = (kWidth - 1) / 2.0;
+  const double radius = kWidth / 2.0;
+  const int32_t xs[2] = {left, left + size.x - 1};
+  const int32_t ys[2] = {box.y1, box.y1 + size.y - 1};
+  for (const int32_t x : xs) {
+    for (const int32_t y : ys) {
+      if (std::hypot(x - centre, y - centre) > radius) {
+        std::cerr << where << " corner (" << x << ',' << y
+                  << ") is outside the round panel\n";
+        ++failures;
+      }
+    }
+  }
+}
+
+void check_screen(LabelCheck& check, const char* step) {
+  pump();
+  lv_obj_update_layout(lv_screen_active());
+  check.step = step;
+  check_labels(lv_screen_active(), check);
+}
+
+void test_every_language_renders_every_label() {
+  moto_nav_ui_set_reduce_motion(1);
+  for (const char* language : {"en-US", "pt-BR", "zh-Hans"}) {
+    CHECK(std::strcmp(moto_nav_ui_set_language(language), language) == 0);
+    LabelCheck check{language};
+
+    moto_ui_state_t empty = base_state();
+    empty.mode = MOTO_UI_ACQUIRING_FIX;
+    empty.route_point_count = 0;
+    moto_nav_ui_set_page(MOTO_UI_PAGE_NAVIGATION);
+    moto_nav_ui_set_state(&empty);
+    moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_OFFLINE);
+    check_screen(check, "phone offline");
+    moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_CONNECTING);
+    check_screen(check, "connecting");
+    moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_ONLINE);
+    check_screen(check, "connected");
+    pump(260);
+    check_screen(check, "ready");
+    empty.route_request_in_flight = 1;
+    moto_nav_ui_set_state(&empty);
+    check_screen(check, "planning");
+
+    moto_ui_state_t route = base_state();
+    fill_route(route, 12);
+    const moto_ui_mode_t modes[] = {MOTO_UI_ACQUIRING_FIX, MOTO_UI_REROUTING,
+                                    MOTO_UI_OFFLINE, MOTO_UI_ARRIVED,
+                                    MOTO_UI_NAVIGATING};
+    for (const moto_ui_mode_t mode : modes) {
+      route.mode = mode;
+      route.online = mode == MOTO_UI_NAVIGATING ? 0 : 1;
+      moto_nav_ui_set_state(&route);
+      check_screen(check, "navigation status");
+    }
+    moto_nav_ui_set_demo_active(1);
+    check_screen(check, "demo");
+    moto_nav_ui_set_demo_active(0);
+
+    route.page = MOTO_UI_PAGE_SPEED;
+    moto_nav_ui_set_state(&route);
+    check_screen(check, "speed");
+    route.page = MOTO_UI_PAGE_COMPASS;
+    for (std::uint16_t heading = 0; heading < 360; heading += 45) {
+      route.heading_deg = heading;
+      moto_nav_ui_set_state(&route);
+      check_screen(check, "compass");
+    }
+
+    moto_nav_ui_set_music_page_enabled(1);
+    moto_nav_ui_set_page(MOTO_UI_PAGE_MUSIC);
+    const moto_music_state_t disconnected{};
+    moto_nav_ui_set_music_state(&disconnected);
+    check_screen(check, "music disconnected");
+    moto_music_state_t connected{};
+    connected.connected = 1;
+    connected.like_available = 1;
+    moto_nav_ui_set_music_state(&connected);
+    check_screen(check, "music without source");
+    connected.liked = 1;
+    connected.source_name = "Apple Music";
+    connected.track_title = "公路之歌";
+    connected.artist_name = "Mariza";
+    moto_nav_ui_set_music_state(&connected);
+    check_screen(check, "music liked");
+    moto_nav_ui_set_page(MOTO_UI_PAGE_NAVIGATION);
+    moto_nav_ui_set_music_page_enabled(0);
+
+    // Every check above ran against real labels, not an empty tree.
+    CHECK(check.labels > 60);
+  }
+}
+
+void test_language_switch_updates_visible_text_in_place() {
+  moto_ui_state_t empty = base_state();
+  empty.mode = MOTO_UI_ACQUIRING_FIX;
+  empty.route_point_count = 0;
+  moto_nav_ui_set_page(MOTO_UI_PAGE_NAVIGATION);
+  moto_nav_ui_set_state(&empty);
+  moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_OFFLINE);
+
+  moto_nav_ui_set_language("en-US");
+  const Frame english = capture();
+  moto_nav_ui_set_language("pt-BR");
+  const Frame portuguese = capture();
+  CHECK(portuguese.hash != english.hash);
+  // Switching back must restore the exact frame: no stale text or layout.
+  moto_nav_ui_set_language("en");
+  CHECK(capture().hash == english.hash);
+
+  // Unknown and regional tags fall back by language, never to a tag.
+  CHECK(std::strcmp(moto_nav_ui_set_language("pt-PT"), "pt-BR") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language("zh-Hans-CN"), "zh-Hans") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language("ZH_TW"), "zh-Hans") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language("pto"), "en-US") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language("de-DE"), "en-US") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language(""), "en-US") == 0);
+  CHECK(std::strcmp(moto_nav_ui_set_language(nullptr), "en-US") == 0);
+  CHECK(capture().hash == english.hash);
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -440,6 +660,8 @@ int main(int argc, char **argv) {
   test_capacity_payloads_render_stably();
   test_motion_frames_interpolate_then_settle_without_residue();
   test_diagonal_map_pixels_are_independent_of_partial_buffer_height();
+  test_every_language_renders_every_label();
+  test_language_switch_updates_visible_text_in_place();
 
   // Terminal screens run last: they tear the full UI down.
   moto_nav_ui_show_boot_screen();

@@ -163,6 +163,7 @@ START 当且仅当 `fragment_offset == 0`。END 当且仅当
 | `0x12` | TrafficDeviation | 手机→设备 | 交通或偏航变化时 |
 | `0x13` | MediaState | 手机→设备 | 曲目/播放变化，进度最高 1 Hz |
 | `0x14` | MapScene | 手机→设备 | 前进约 100 m、跨离线分块或路线改变时 |
+| `0x15` | LocaleSelection | 手机→设备 | 握手完成后及应用语言改变时，ACK_REQUESTED |
 | `0x20` | DeviceCommand | 设备→手机 | 用户动作，ACK_REQUESTED+URGENT |
 
 ## 6. Payload 编码
@@ -182,7 +183,8 @@ u16 heartbeat_interval_ms  >=250
 ```
 
 能力位：bit0 navigation、bit1 route geometry、bit2 traffic、bit3 media state、
-bit4 touch commands、bit5 music commands、bit6 command ACK、bit7 map scene。
+bit4 touch commands、bit5 music commands、bit6 command ACK、bit7 map scene、
+bit8 locale selection。
 
 ### 6.2 Heartbeat (`0x02`, 固定 11 字节)
 
@@ -400,6 +402,19 @@ kind：0 PageSelected、1 Tap、2 LongPress、3 SwipeLeft、4 SwipeRight、5 Swi
 手机以 `(session_id, command_id)` 去重；成功、失败或重复都回复 Ack。UI 动作必须在
 成功提交后才 ACK Ok。
 
+### 6.10 LocaleSelection (`0x15`)
+
+```text
+u8  revision
+u8 + ASCII language_tag    BCP 47，1..15 字节：首字符为字母，其余为字母、数字或 '-'
+```
+
+手机界面语言，使圆屏与应用使用同一种语言。仅当双方都声明 bit8 时，手机在握手完成后
+立即发送，并在应用语言改变时再次发送；不支持 bit8 的旧固件和旧应用既不发送也不接收。
+设备把 `pt*` 映射为 pt-BR、`zh*` 映射为 zh-Hans、其余映射为 en-US，立即生效并保存，
+下次开机在连接手机之前即使用该语言。道路名、导航指令和媒体文字仍是手机提供的数据，
+设备不会翻译。
+
 ## 7. Display Snapshot 到共享 NavSnapshot
 
 适配器必须做值转换，不得直接操作 `moto_ui_state_t`。推荐映射如下：
@@ -465,6 +480,13 @@ ACK_REQUESTED+URGENT 的两个分片：
 ```text
 b701200d341200000d000112341203ffffff6793
 b701200e341208000d00ff40302010ef35
+```
+
+`pt-BR` 的 LocaleSelection payload，以及 sequence 2、ACK_REQUESTED 的单帧：
+
+```text
+010570742d4252
+b7011507020000000700010570742d42522e44
 ```
 
 机器可读的完整向量以 fixture 为准。修改任何 v1 字节都应先解释兼容性影响，并由

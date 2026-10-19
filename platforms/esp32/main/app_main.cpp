@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 
 #include "ble_nav_transport_nimble.h"
@@ -11,11 +12,43 @@
 #include "moto_nav_presenter.hpp"
 #include "moto_nav_ui.h"
 #include "motion_heading_sensor.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "phone_nav_bridge.h"
 
 namespace {
 constexpr char kTag[] = "moto_gps";
 constexpr std::uint64_t kPowerHoldMs = 3'000;
+constexpr char kUiNamespace[] = "moto_ui";
+constexpr char kLanguageKey[] = "language";
+
+// The phone's last language, so the display boots in it before any phone
+// connects. Missing or unreadable storage simply means the default language.
+bool load_stored_language(char (&language)[16]) {
+  // A second nvs_flash_init() is a no-op; BleNavTransport repairs a damaged
+  // partition later, at the cost of one boot in the default language.
+  if (nvs_flash_init() != ESP_OK) return false;
+  nvs_handle_t handle = 0;
+  if (nvs_open(kUiNamespace, NVS_READONLY, &handle) != ESP_OK) return false;
+  std::size_t length = sizeof(language);
+  const esp_err_t result = nvs_get_str(handle, kLanguageKey, language, &length);
+  nvs_close(handle);
+  return result == ESP_OK;
+}
+
+void store_language(const char* language, void*) {
+  nvs_handle_t handle = 0;
+  esp_err_t result = nvs_open(kUiNamespace, NVS_READWRITE, &handle);
+  if (result == ESP_OK) {
+    result = nvs_set_str(handle, kLanguageKey, language);
+    if (result == ESP_OK) result = nvs_commit(handle);
+    nvs_close(handle);
+  }
+  if (result != ESP_OK) {
+    ESP_LOGW(kTag, "could not store display language %s: %s", language,
+             esp_err_to_name(result));
+  }
+}
 
 moto::ble::AckStatus receive_phone_message(
     const moto::ble::ReassembledMessage& message, void* context) {
@@ -157,12 +190,17 @@ extern "C" void app_main(void) {
   // frame before constructing the full production UI.
   vTaskDelay(pdMS_TO_TICKS(1'250));
 
+  char stored_language[16] = {};
+  const bool has_stored_language = load_stored_language(stored_language);
+
   if (!board_port_lock(UINT32_MAX)) {
     ESP_LOGE(kTag, "could not reacquire LVGL lock after boot screen");
     vTaskDelete(nullptr);
     return;
   }
 
+  const char* const language = moto_nav_ui_set_language(
+      has_stored_language ? stored_language : nullptr);
   moto_nav_ui_create();
   static moto::nav::NavPresenter presenter;
   static PhoneNavBridge phone_bridge(presenter);
@@ -178,6 +216,8 @@ extern "C" void app_main(void) {
   moto_nav_ui_set_music_page_enabled(0);
   phone_bridge.install_ui_callbacks();
   board_port_unlock();
+  phone_bridge.set_language_store(store_language, nullptr,
+                                  has_stored_language ? language : "");
 
   if (!phone_bridge.start_renderer()) {
     ESP_LOGE(kTag, "UI renderer startup failed; BLE was not started");

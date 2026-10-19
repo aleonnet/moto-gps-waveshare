@@ -1,10 +1,17 @@
 set(MOTO_REPOSITORY_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../..")
 set(MOTO_SHARED_UI_SOURCE
     "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/src/moto_nav_ui.cpp")
-set(MOTO_SHARED_UI_FONT
-    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_nav_16.c")
+set(MOTO_SHARED_UI_ASSETS
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_cjk_16.c"
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_latin_16.c"
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_latin_20.c"
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_latin_28.c"
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/assets/moto_font_latin_48.c"
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/generated/moto_nav_i18n.c")
 set(MOTO_SHARED_UI_INCLUDE
     "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/include")
+set(MOTO_SHARED_UI_GENERATED_INCLUDE
+    "${MOTO_REPOSITORY_ROOT}/shared/nav_ui/generated")
 set(MOTO_SHARED_NAV_PRESENTER_SOURCE
     "${MOTO_REPOSITORY_ROOT}/shared/nav_presenter/src/moto_nav_presenter.cpp")
 set(MOTO_SHARED_BLE_PROTOCOL_SOURCE
@@ -21,7 +28,7 @@ idf_component_register(
         "phone_nav_bridge.cpp"
         "${MOTO_SHARED_BLE_PROTOCOL_SOURCE}"
         "${MOTO_SHARED_NAV_PRESENTER_SOURCE}"
-        "${MOTO_SHARED_UI_FONT}"
+        ${MOTO_SHARED_UI_ASSETS}
         "${MOTO_SHARED_UI_SOURCE}"
     INCLUDE_DIRS
         "."
@@ -29,6 +36,8 @@ idf_component_register(
         "${MOTO_REPOSITORY_ROOT}/shared/ble_protocol/include"
         "${MOTO_REPOSITORY_ROOT}/shared/nav_presenter/include"
         "${MOTO_SHARED_UI_INCLUDE}"
+    PRIV_INCLUDE_DIRS
+        "${MOTO_SHARED_UI_GENERATED_INCLUDE}"
     REQUIRES
         esp_timer
         esp_driver_gpio

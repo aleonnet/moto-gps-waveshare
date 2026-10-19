@@ -474,6 +474,29 @@ Error validate(const MapScene& value) {
   return Error::None;
 }
 
+Error validate(const LocaleSelection& value) {
+  if (value.language_tag.size() > kMaxLanguageTagBytes) {
+    return Error::StringTooLong;
+  }
+  if (value.language_tag.empty()) {
+    return Error::OutOfRange;
+  }
+  const auto letter = [](char character) {
+    return (character >= 'A' && character <= 'Z') ||
+           (character >= 'a' && character <= 'z');
+  };
+  if (!letter(value.language_tag.front())) {
+    return Error::OutOfRange;
+  }
+  for (const char character : value.language_tag) {
+    if (!letter(character) && !(character >= '0' && character <= '9') &&
+        character != '-') {
+      return Error::OutOfRange;
+    }
+  }
+  return Error::None;
+}
+
 Error validate(const DeviceCommand& value) {
   if (!valid_command_kind(value.kind) || !valid_display_page(value.page)) {
     return Error::InvalidEnum;
@@ -607,6 +630,8 @@ BytesResult encode_payload(const T& value) {
       writer.u8(static_cast<std::uint8_t>(building.building_class));
       write_points(building.points);
     }
+  } else if constexpr (std::is_same_v<T, LocaleSelection>) {
+    writer.string_u8(value.language_tag);
   } else if constexpr (std::is_same_v<T, DeviceCommand>) {
     writer.u8(static_cast<std::uint8_t>(value.kind));
     writer.u16(value.command_id);
@@ -885,6 +910,16 @@ MessageResult decode_map_scene(ByteView payload) {
       }
       reader.require_end();
     }
+  }
+  return decoded_result(std::move(value), reader);
+}
+
+MessageResult decode_locale_selection(ByteView payload) {
+  Reader reader(payload);
+  LocaleSelection value;
+  if (begin_payload(reader)) {
+    value.language_tag = reader.string_u8(kMaxLanguageTagBytes);
+    reader.require_end();
   }
   return decoded_result(std::move(value), reader);
 }
@@ -1448,6 +1483,10 @@ bool MapScene::operator==(const MapScene& rhs) const noexcept {
                   rhs.view_origin, rhs.radius_m, rhs.roads, rhs.buildings);
 }
 
+bool LocaleSelection::operator==(const LocaleSelection& rhs) const noexcept {
+  return language_tag == rhs.language_tag;
+}
+
 bool DeviceCommand::operator==(const DeviceCommand& rhs) const noexcept {
   return std::tie(kind, command_id, page, x, y, event_time_ms) ==
          std::tie(rhs.kind, rhs.command_id, rhs.page, rhs.x, rhs.y,
@@ -1474,6 +1513,8 @@ MessageType message_type(const Message& message) noexcept {
           return MessageType::MediaState;
         } else if constexpr (std::is_same_v<T, MapScene>) {
           return MessageType::MapScene;
+        } else if constexpr (std::is_same_v<T, LocaleSelection>) {
+          return MessageType::LocaleSelection;
         } else {
           return MessageType::DeviceCommand;
         }
@@ -1500,6 +1541,8 @@ MessageResult decode_message(MessageType type, ByteView payload) {
       return decode_traffic_deviation(payload);
     case MessageType::MediaState: return decode_media_state(payload);
     case MessageType::MapScene: return decode_map_scene(payload);
+    case MessageType::LocaleSelection:
+      return decode_locale_selection(payload);
     case MessageType::DeviceCommand:
       return decode_device_command(payload);
   }

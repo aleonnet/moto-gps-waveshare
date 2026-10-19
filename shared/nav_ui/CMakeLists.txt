@@ -9,11 +9,16 @@ if(EMSCRIPTEN)
 endif()
 
 add_library(moto_nav_ui STATIC
-    assets/moto_font_nav_16.c
+    assets/moto_font_cjk_16.c
+    assets/moto_font_latin_16.c
+    assets/moto_font_latin_20.c
+    assets/moto_font_latin_28.c
+    assets/moto_font_latin_48.c
+    generated/moto_nav_i18n.c
     src/moto_nav_ui.cpp
 )
 
-target_include_directories(moto_nav_ui PUBLIC include)
+target_include_directories(moto_nav_ui PUBLIC include PRIVATE generated)
 target_link_libraries(moto_nav_ui PUBLIC lvgl)
 target_compile_features(moto_nav_ui PUBLIC cxx_std_17)
 target_compile_options(moto_nav_ui PRIVATE

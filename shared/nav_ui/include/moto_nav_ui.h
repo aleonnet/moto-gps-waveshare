@@ -144,6 +144,13 @@ typedef struct {
     const char *next_road_name;
 } moto_ui_state_t;
 
+/**
+ * Select the display language from a BCP 47 tag: "pt*" selects pt-BR, "zh*"
+ * selects zh-Hans and anything else (including NULL) en-US. Valid at any time
+ * after lv_init(); the choice survives moto_nav_ui_create() and the boot and
+ * power-off screens. Returns the selected tag as a static string.
+ */
+const char *moto_nav_ui_set_language(const char *bcp47);
 void moto_nav_ui_create(void);
 /** Draw the monochrome power-on wordmark before the full UI is created. */
 void moto_nav_ui_show_boot_screen(void);

@@ -33,5 +33,7 @@ std::string phone_nav_bridge_media_artist();
 bool phone_nav_bridge_last_demo_active();
 moto_maneuver_t phone_nav_bridge_last_maneuver();
 uint32_t phone_nav_bridge_last_distance_to_maneuver_m();
+std::string phone_nav_bridge_ui_language();
+int phone_nav_bridge_language_set_count();
 
 }  // namespace moto::test

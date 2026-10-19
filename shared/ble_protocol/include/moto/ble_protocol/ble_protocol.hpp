@@ -54,6 +54,8 @@ constexpr std::size_t kMaxMapSceneRoads = 24;
 constexpr std::size_t kMaxMapSceneRoadPoints = 192;
 constexpr std::size_t kMaxMapSceneBuildings = 16;
 constexpr std::size_t kMaxMapSceneBuildingPoints = 128;
+// BCP 47 tags such as "pt-BR" or "zh-Hans"; enough for language-script-region.
+constexpr std::size_t kMaxLanguageTagBytes = 15;
 
 struct ByteView {
   const std::uint8_t* data = nullptr;
@@ -116,6 +118,7 @@ enum class MessageType : std::uint8_t {
   TrafficDeviation = 0x12,
   MediaState = 0x13,
   MapScene = 0x14,
+  LocaleSelection = 0x15,
   DeviceCommand = 0x20,
 };
 
@@ -273,6 +276,7 @@ enum Capability : std::uint32_t {
   CapabilityMusicCommands = 1U << 5U,
   CapabilityCommandAck = 1U << 6U,
   CapabilityMapScene = 1U << 7U,
+  CapabilityLocale = 1U << 8U,
 };
 
 struct ConnectionStatus {
@@ -525,6 +529,14 @@ struct MapScene {
   bool operator==(const MapScene& rhs) const noexcept;
 };
 
+// The phone's interface language, so the display speaks the same language.
+// Optional message: sent only when both endpoints advertise CapabilityLocale.
+struct LocaleSelection {
+  std::string language_tag;  // BCP 47, ASCII letters, digits and '-'
+
+  bool operator==(const LocaleSelection& rhs) const noexcept;
+};
+
 enum class DeviceCommandKind : std::uint8_t {
   PageSelected = 0,
   Tap = 1,
@@ -560,6 +572,7 @@ using Message = std::variant<ConnectionStatus,
                              TrafficDeviation,
                              MediaState,
                              MapScene,
+                             LocaleSelection,
                              DeviceCommand>;
 
 using MessageResult = Result<Message>;

@@ -39,6 +39,8 @@ bool media_like_available = false;
 std::string media_source;
 std::string media_title;
 std::string media_artist;
+std::string ui_language;
+int language_set_count = 0;
 
 }  // namespace
 
@@ -61,6 +63,13 @@ extern "C" bool board_port_lock(uint32_t) {
 }
 
 extern "C" void board_port_unlock(void) { board_mutex.unlock(); }
+
+extern "C" const char* moto_nav_ui_set_language(const char* bcp47) {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  ++language_set_count;
+  ui_language = bcp47 == nullptr ? "" : bcp47;
+  return ui_language.c_str();
+}
 
 extern "C" void moto_nav_ui_create(void) {}
 extern "C" void moto_nav_ui_show_boot_screen(void) {}
@@ -178,6 +187,8 @@ void reset_phone_nav_bridge_probe() {
   media_source.clear();
   media_title.clear();
   media_artist.clear();
+  ui_language.clear();
+  language_set_count = 0;
 }
 
 void emit_page_change(moto_ui_page_t page) {
@@ -331,6 +342,16 @@ bool phone_nav_bridge_last_demo_active() {
 moto_maneuver_t phone_nav_bridge_last_maneuver() {
   const std::lock_guard<std::mutex> lock(probe_mutex);
   return last_maneuver;
+}
+
+std::string phone_nav_bridge_ui_language() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return ui_language;
+}
+
+int phone_nav_bridge_language_set_count() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return language_set_count;
 }
 
 uint32_t phone_nav_bridge_last_distance_to_maneuver_m() {

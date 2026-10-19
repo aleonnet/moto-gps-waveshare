@@ -296,6 +296,59 @@ void test_music_capability_state_and_touch_commands() {
   }
 }
 
+struct LanguageStore {
+  std::vector<std::string> writes;
+};
+
+void record_language(const char* language, void* context) {
+  static_cast<LanguageStore*>(context)->writes.emplace_back(language);
+}
+
+void test_phone_language_reaches_the_ui_and_is_stored_once() {
+  moto::test::reset_phone_nav_bridge_probe();
+  moto::nav::NavPresenter presenter;
+  PhoneNavBridge bridge(presenter);
+  LanguageStore store;
+  // The device booted in the language it stored last time.
+  bridge.set_language_store(record_language, &store, "pt-BR");
+  bridge.on_link_state(true);
+
+  moto::ble::LocaleSelection locale;
+  locale.language_tag = "pt-BR";
+  CHECK(bridge.on_message(make_message(locale, 30)) ==
+        moto::ble::AckStatus::Ok);
+  pump(bridge);
+  CHECK(moto::test::phone_nav_bridge_ui_language() == "pt-BR");
+  // Unchanged language: no flash write on every reconnect.
+  CHECK(store.writes.empty());
+
+  locale.language_tag = "zh-Hans";
+  CHECK(bridge.on_message(make_message(locale, 31)) ==
+        moto::ble::AckStatus::Ok);
+  pump(bridge);
+  CHECK(moto::test::phone_nav_bridge_ui_language() == "zh-Hans");
+  CHECK(store.writes == std::vector<std::string>{"zh-Hans"});
+
+  // Losing the phone keeps the display in its last language.
+  const int sets_before_disconnect =
+      moto::test::phone_nav_bridge_language_set_count();
+  bridge.on_link_state(false);
+  pump(bridge);
+  CHECK(moto::test::phone_nav_bridge_language_set_count() ==
+        sets_before_disconnect);
+  CHECK(moto::test::phone_nav_bridge_ui_language() == "zh-Hans");
+  // The display, not the bridge, supplies the translated "waiting" text.
+  CHECK(moto::test::phone_nav_bridge_media_title().empty());
+  CHECK(!moto::test::phone_nav_bridge_media_connected());
+
+  locale.language_tag = "en-US";
+  bridge.on_link_state(true);
+  CHECK(bridge.on_message(make_message(locale, 32)) ==
+        moto::ble::AckStatus::Ok);
+  pump(bridge);
+  CHECK(store.writes == (std::vector<std::string>{"zh-Hans", "en-US"}));
+}
+
 void test_demo_uses_the_production_presenter_path() {
   moto::test::reset_phone_nav_bridge_probe();
   moto::nav::NavPresenter presenter;
@@ -572,6 +625,7 @@ int main() {
   test_ble_submission_never_waits_for_lvgl_and_retries_latest_state();
   test_phone_connection_lifecycle_reaches_the_ui();
   test_music_capability_state_and_touch_commands();
+  test_phone_language_reaches_the_ui_and_is_stored_once();
   test_demo_uses_the_production_presenter_path();
   test_ios_demo_token_attaches_context_and_live_route_clears_it();
   test_map_scene_atomically_replaces_roads_and_buildings_at_capacity();

@@ -1,0 +1,215 @@
+{
+  "languages": ["en-US", "pt-BR", "zh-Hans"],
+  "messages": {
+    "device.lifecycle.kicker.phone": {
+      "comment": "Small caption above the connection symbol while the phone is not linked.",
+      "en-US": "MOTO GPS / PHONE LINK",
+      "pt-BR": "MOTO GPS / CELULAR",
+      "zh-Hans": "MOTO GPS / PHONE LINK"
+    },
+    "device.lifecycle.kicker.ready": {
+      "comment": "Small caption above the symbol when the phone is linked and no route is active.",
+      "en-US": "MOTO GPS / READY",
+      "pt-BR": "MOTO GPS / PRONTO",
+      "zh-Hans": "MOTO GPS / READY"
+    },
+    "device.lifecycle.kicker.route": {
+      "comment": "Small caption above the symbol while the phone computes a route.",
+      "en-US": "MOTO GPS / ROUTE",
+      "pt-BR": "MOTO GPS / ROTA",
+      "zh-Hans": "MOTO GPS / ROUTE"
+    },
+    "device.lifecycle.title.connect_phone": {
+      "comment": "Large title: the device waits for the phone app.",
+      "en-US": "CONNECT PHONE",
+      "pt-BR": "CONECTE O CELULAR",
+      "zh-Hans": "CONNECT PHONE"
+    },
+    "device.lifecycle.title.connecting": {
+      "comment": "Large title: Bluetooth link and handshake in progress.",
+      "en-US": "CONNECTING",
+      "pt-BR": "CONECTANDO",
+      "zh-Hans": "CONNECTING"
+    },
+    "device.lifecycle.title.connected": {
+      "comment": "Large title shown briefly after the handshake completes.",
+      "en-US": "CONNECTED",
+      "pt-BR": "CONECTADO",
+      "zh-Hans": "CONNECTED"
+    },
+    "device.lifecycle.title.ready": {
+      "comment": "Large title: linked, waiting for the rider to pick a destination.",
+      "en-US": "READY TO RIDE",
+      "pt-BR": "PRONTO PARA RODAR",
+      "zh-Hans": "READY TO RIDE"
+    },
+    "device.lifecycle.title.planning": {
+      "comment": "Large title: the phone is computing the route.",
+      "en-US": "BUILDING ROUTE",
+      "pt-BR": "CALCULANDO ROTA",
+      "zh-Hans": "BUILDING ROUTE"
+    },
+    "device.lifecycle.subtitle.open_app": {
+      "comment": "Line under CONNECT PHONE.",
+      "en-US": "Open the phone app",
+      "pt-BR": "Abra o app no celular",
+      "zh-Hans": "请打开手机应用"
+    },
+    "device.lifecycle.subtitle.connecting": {
+      "comment": "Line under CONNECTING.",
+      "en-US": "Establishing connection",
+      "pt-BR": "Estabelecendo conexão",
+      "zh-Hans": "正在建立连接"
+    },
+    "device.lifecycle.subtitle.connected": {
+      "comment": "Line under CONNECTED.",
+      "en-US": "Connection established",
+      "pt-BR": "Conexão estabelecida",
+      "zh-Hans": "连接成功"
+    },
+    "device.lifecycle.subtitle.ready": {
+      "comment": "Line under READY TO RIDE.",
+      "en-US": "Choose a destination on the phone",
+      "pt-BR": "Escolha o destino no celular",
+      "zh-Hans": "请在手机选择目的地"
+    },
+    "device.lifecycle.subtitle.planning": {
+      "comment": "Line under BUILDING ROUTE.",
+      "en-US": "Planning the route",
+      "pt-BR": "Planejando a rota",
+      "zh-Hans": "正在规划路线"
+    },
+    "device.status.demo": {
+      "comment": "Top status line while the built-in demo ride drives the display.",
+      "en-US": "DEMO RIDE",
+      "pt-BR": "DEMONSTRAÇÃO",
+      "zh-Hans": "DEMO RIDE"
+    },
+    "device.status.acquiring_gps": {
+      "comment": "Top status line: waiting for a usable GPS fix.",
+      "en-US": "ACQUIRING GPS",
+      "pt-BR": "BUSCANDO GPS",
+      "zh-Hans": "ACQUIRING GPS"
+    },
+    "device.status.rerouting": {
+      "comment": "Top status line: the route is being recalculated.",
+      "en-US": "REROUTING",
+      "pt-BR": "RECALCULANDO",
+      "zh-Hans": "REROUTING"
+    },
+    "device.status.route_cached": {
+      "comment": "Top status line: guidance continues on the stored route without network.",
+      "en-US": "ROUTE CACHED",
+      "pt-BR": "ROTA SALVA",
+      "zh-Hans": "ROUTE CACHED"
+    },
+    "device.status.arrived": {
+      "comment": "Top status line at the destination.",
+      "en-US": "ARRIVED",
+      "pt-BR": "CHEGOU",
+      "zh-Hans": "ARRIVED"
+    },
+    "device.status.no_hotspot": {
+      "comment": "Top status line: the phone has no mobile data while navigating.",
+      "en-US": "NO HOTSPOT",
+      "pt-BR": "SEM INTERNET",
+      "zh-Hans": "NO HOTSPOT"
+    },
+    "device.speed.title": {
+      "comment": "Title of the speedometer page.",
+      "en-US": "SPEED",
+      "pt-BR": "VELOCIDADE",
+      "zh-Hans": "SPEED"
+    },
+    "device.speed.caption": {
+      "comment": "Caption under the speedometer value.",
+      "en-US": "LIVE SPEED",
+      "pt-BR": "VELOCIDADE ATUAL",
+      "zh-Hans": "LIVE SPEED"
+    },
+    "device.compass.n": {
+      "comment": "Compass abbreviation: north.",
+      "en-US": "N",
+      "pt-BR": "N",
+      "zh-Hans": "N"
+    },
+    "device.compass.ne": {
+      "comment": "Compass abbreviation: northeast.",
+      "en-US": "NE",
+      "pt-BR": "NE",
+      "zh-Hans": "NE"
+    },
+    "device.compass.e": {
+      "comment": "Compass abbreviation: east.",
+      "en-US": "E",
+      "pt-BR": "L",
+      "zh-Hans": "E"
+    },
+    "device.compass.se": {
+      "comment": "Compass abbreviation: southeast.",
+      "en-US": "SE",
+      "pt-BR": "SE",
+      "zh-Hans": "SE"
+    },
+    "device.compass.s": {
+      "comment": "Compass abbreviation: south.",
+      "en-US": "S",
+      "pt-BR": "S",
+      "zh-Hans": "S"
+    },
+    "device.compass.sw": {
+      "comment": "Compass abbreviation: southwest.",
+      "en-US": "SW",
+      "pt-BR": "SO",
+      "zh-Hans": "SW"
+    },
+    "device.compass.w": {
+      "comment": "Compass abbreviation: west.",
+      "en-US": "W",
+      "pt-BR": "O",
+      "zh-Hans": "W"
+    },
+    "device.compass.nw": {
+      "comment": "Compass abbreviation: northwest.",
+      "en-US": "NW",
+      "pt-BR": "NO",
+      "zh-Hans": "NW"
+    },
+    "device.music.phone_not_connected": {
+      "comment": "Music page source line when the phone media link is down.",
+      "en-US": "PHONE NOT CONNECTED",
+      "pt-BR": "CELULAR DESCONECTADO",
+      "zh-Hans": "PHONE NOT CONNECTED"
+    },
+    "device.music.waiting": {
+      "comment": "Music page title while no phone is connected.",
+      "en-US": "Waiting for connection",
+      "pt-BR": "Aguardando conexão",
+      "zh-Hans": "等待连接"
+    },
+    "device.music.phone_media": {
+      "comment": "Music page source line when the phone does not name the player.",
+      "en-US": "PHONE MEDIA",
+      "pt-BR": "MÍDIA DO CELULAR",
+      "zh-Hans": "PHONE MEDIA"
+    },
+    "device.music.like": {
+      "comment": "Small music button that likes the current track.",
+      "en-US": "LIKE",
+      "pt-BR": "CURTIR",
+      "zh-Hans": "LIKE"
+    },
+    "device.music.liked": {
+      "comment": "The same button after the like was sent.",
+      "en-US": "SENT",
+      "pt-BR": "ENVIADO",
+      "zh-Hans": "SENT"
+    },
+    "device.power_off": {
+      "comment": "Last frame before the device removes power.",
+      "en-US": "POWER OFF",
+      "pt-BR": "DESLIGANDO",
+      "zh-Hans": "POWER OFF"
+    }
+  }
+}

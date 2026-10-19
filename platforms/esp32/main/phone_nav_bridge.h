@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 #include "moto/ble_protocol/ble_protocol.hpp"
 #include "moto_nav_presenter.hpp"
@@ -19,10 +20,19 @@ class PhoneNavBridge {
   using SendCallback = bool (*)(const moto::ble::Message& message,
                                 std::uint8_t frame_flags,
                                 void* context);
+  // Persists the display language; called from the renderer task, never
+  // with the display lock or the bridge state held.
+  using LanguageStoreCallback = void (*)(const char* language_tag,
+                                         void* context);
 
   explicit PhoneNavBridge(moto::nav::NavPresenter& presenter);
 
   void set_sender(SendCallback callback, void* context) noexcept;
+  // stored_language is the tag already persisted (selected at boot), so an
+  // unchanged phone language never rewrites flash. Call before
+  // start_renderer().
+  void set_language_store(LanguageStoreCallback callback, void* context,
+                          const char* stored_language);
   void install_ui_callbacks();
   // Starts the sole background owner of NavPresenter and all LVGL writes.
   // BLE/IMU callbacks only retain state and signal this low-priority task.
@@ -64,6 +74,7 @@ class PhoneNavBridge {
       const moto::ble::RouteGeometry& input);
   void consume_traffic(const moto::ble::TrafficDeviation& input);
   void consume_media(const moto::ble::MediaState& input);
+  void consume_locale(const moto::ble::LocaleSelection& input);
   moto::ble::AckStatus consume_map_scene(const moto::ble::MapScene& input);
   // Requires state_mutex_. This helper never calls LVGL or the BLE sender.
   void apply_geometry_locked(moto::nav::NavSnapshot& target);
@@ -105,6 +116,13 @@ class PhoneNavBridge {
   moto_ui_phone_connection_t ui_phone_connection_ = MOTO_UI_PHONE_OFFLINE;
   moto::ble::MediaState media_state_{};
   moto::ble::MediaState render_media_state_{};
+  std::string language_tag_;
+  LanguageStoreCallback language_store_ = nullptr;
+  void* language_store_context_ = nullptr;
+  // Renderer-task only (stored_language_ is seeded by set_language_store()
+  // before start_renderer()).
+  std::string render_language_tag_;
+  std::string stored_language_;
   bool music_page_enabled_ = false;
   bool render_music_page_enabled_ = false;
   moto_ui_phone_connection_t render_phone_connection_ =
@@ -114,6 +132,7 @@ class PhoneNavBridge {
     RenderNavigation = 1U << 0U,
     RenderMotion = 1U << 1U,
     RenderMedia = 1U << 2U,
+    RenderLanguage = 1U << 3U,
   };
   std::atomic<std::uint32_t> pending_render_flags_{0};
 #ifdef ESP_PLATFORM

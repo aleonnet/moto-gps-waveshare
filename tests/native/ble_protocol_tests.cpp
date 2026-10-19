@@ -192,6 +192,12 @@ MapScene full_map_scene_fixture() {
   return value;
 }
 
+LocaleSelection locale_fixture() {
+  LocaleSelection value;
+  value.language_tag = "pt-BR";
+  return value;
+}
+
 DeviceCommand command_fixture() {
   DeviceCommand value;
   value.kind = DeviceCommandKind::MusicNext;
@@ -262,6 +268,7 @@ void dump_golden() {
   const Bytes navigation = encode_or_fail(Message{navigation_fixture()});
   const Bytes geometry = encode_or_fail(Message{geometry_fixture()});
   const Bytes command = encode_or_fail(Message{command_fixture()});
+  const Bytes locale = encode_or_fail(Message{locale_fixture()});
   std::cout << "connection.payload=" << hex(ByteView(connection)) << '\n';
   std::cout << "connection.frame="
             << frame_hex(fragment_or_fail(MessageType::ConnectionStatus, 1,
@@ -274,6 +281,11 @@ void dump_golden() {
             << frame_hex(fragment_or_fail(MessageType::DeviceCommand,
                                           0x1234U, command, 20,
                                           AckRequested | Urgent))
+            << '\n';
+  std::cout << "locale.payload=" << hex(ByteView(locale)) << '\n';
+  std::cout << "locale.frame="
+            << frame_hex(fragment_or_fail(MessageType::LocaleSelection, 2,
+                                          locale, 182, AckRequested))
             << '\n';
 }
 
@@ -324,6 +336,7 @@ void test_all_message_round_trips() {
       Message{traffic_fixture()},
       Message{media_fixture()},
       Message{map_scene_fixture()},
+      Message{locale_fixture()},
       Message{command_fixture()},
   };
   for (const Message& message : messages) {
@@ -359,6 +372,13 @@ void test_golden_vectors() {
         frame_hex(fragment_or_fail(MessageType::DeviceCommand, 0x1234U,
                                    command, 20,
                                    AckRequested | Urgent)));
+  const Bytes locale = encode_or_fail(Message{locale_fixture()});
+  CHECK(expected.at("locale.payload") == hex(ByteView(locale)));
+  CHECK(expected.at("locale.frame") ==
+        frame_hex(fragment_or_fail(MessageType::LocaleSelection, 2, locale,
+                                   182, AckRequested)));
+  CHECK(static_cast<std::uint8_t>(MessageType::LocaleSelection) == 0x15U);
+  CHECK(CapabilityLocale == (1U << 8U));
 }
 
 void test_fragmentation_and_reassembly() {
@@ -555,6 +575,28 @@ void test_validation_failures() {
   TrafficDeviation overlap = traffic_fixture();
   overlap.segments[1].start_offset_m = 849;
   CHECK(encode_message(Message{overlap}).error == Error::OutOfRange);
+
+  const auto locale_error = [](const char* tag) {
+    LocaleSelection value;
+    value.language_tag = tag;
+    return encode_message(Message{value}).error;
+  };
+  CHECK(locale_error("zh-Hans-CN") == Error::None);
+  CHECK(locale_error("") == Error::OutOfRange);
+  CHECK(locale_error("pt_BR") == Error::OutOfRange);
+  CHECK(locale_error("1pt") == Error::OutOfRange);
+  CHECK(locale_error("pt-BR\n") == Error::OutOfRange);
+  CHECK(locale_error("abcdefghijklmnop") == Error::StringTooLong);
+  Bytes oversized_locale = {kPayloadRevision, 16};
+  oversized_locale.resize(18, 'a');
+  CHECK(decode_message(MessageType::LocaleSelection,
+                       ByteView(oversized_locale)).error ==
+        Error::StringTooLong);
+  Bytes trailing_locale = encode_or_fail(Message{locale_fixture()});
+  trailing_locale.push_back(0);
+  CHECK(decode_message(MessageType::LocaleSelection,
+                       ByteView(trailing_locale)).error ==
+        Error::TrailingPayload);
 
   DeviceCommand zero_command = command_fixture();
   zero_command.command_id = 0;

@@ -21,11 +21,13 @@
 #define LV_USE_STDLIB_STRING LV_STDLIB_BUILTIN
 #define LV_USE_STDLIB_SPRINTF LV_STDLIB_BUILTIN
 
-#define LV_FONT_MONTSERRAT_16 1
-#define LV_FONT_MONTSERRAT_20 1
-#define LV_FONT_MONTSERRAT_28 1
-#define LV_FONT_MONTSERRAT_48 1
-#define LV_FONT_SOURCE_HAN_SANS_SC_16_CJK 0
+/* The UI uses its own Latin-1 Montserrat sizes (shared/nav_ui/assets, made by
+ * scripts/generate_fonts.sh) so pt-BR accents render. Their CJK fallback chain
+ * ends in this 1,434-glyph font for Chinese text the phone sends (track names). */
+#define LV_FONT_SOURCE_HAN_SANS_SC_16_CJK 1
+
+/* Device strings come from shared/i18n/catalog.json through lv_translation. */
+#define LV_USE_TRANSLATION 1
 
 #define LV_USE_ARC 1
 #define LV_USE_LABEL 1
