@@ -35,5 +35,7 @@ moto_maneuver_t phone_nav_bridge_last_maneuver();
 uint32_t phone_nav_bridge_last_distance_to_maneuver_m();
 std::string phone_nav_bridge_ui_language();
 int phone_nav_bridge_language_set_count();
+int phone_nav_bridge_board_lock_depth();
+bool phone_nav_bridge_language_set_outside_board_lock();
 
 }  // namespace moto::test

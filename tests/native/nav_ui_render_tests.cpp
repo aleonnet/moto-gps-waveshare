@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -633,6 +634,103 @@ void test_language_switch_updates_visible_text_in_place() {
   CHECK(capture().hash == english.hash);
 }
 
+bool screen_shows(lv_obj_t* object, const char* text) {
+  if (lv_obj_check_type(object, &lv_label_class) && !label_hidden(object) &&
+      std::strcmp(lv_label_get_text(object), text) == 0) {
+    return true;
+  }
+  const std::uint32_t children = lv_obj_get_child_count(object);
+  for (std::uint32_t i = 0; i < children; ++i) {
+    if (screen_shows(lv_obj_get_child(object, static_cast<int32_t>(i)), text)) return true;
+  }
+  return false;
+}
+
+bool screen_shows(const char* text) {
+  pump();
+  return screen_shows(lv_screen_active(), text);
+}
+
+// Production order (app_main): the stored language is applied during the boot
+// screen, before the full UI exists, and the UI is then created in it.
+void test_language_before_the_ui_is_used_at_creation() {
+  moto_nav_ui_show_boot_screen();
+  CHECK(std::strcmp(moto_nav_ui_set_language("pt-BR"), "pt-BR") == 0);
+  moto_nav_ui_create();
+  moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_OFFLINE);
+  CHECK(screen_shows("CONECTE O CELULAR"));
+  moto_nav_ui_set_language("en-US");
+  CHECK(screen_shows("CONNECT PHONE"));
+}
+
+// Switching language alone must redraw a screen exactly as a fresh render in
+// the new language, and differently from the old one.
+void check_switch_in_place(const char* step, const std::function<void()>& show) {
+  moto_nav_ui_set_language("en-US");
+  show();
+  const Frame english = capture();
+  moto_nav_ui_set_language("pt-BR");
+  const Frame switched = capture();
+  show();
+  const Frame fresh = capture();
+  if (switched.hash == english.hash || switched.hash != fresh.hash) {
+    std::cerr << step << ": switching language did not redraw in place\n";
+    ++failures;
+  }
+  moto_nav_ui_set_language("en-US");
+}
+
+void test_language_switch_redraws_every_page_in_place() {
+  moto_nav_ui_set_reduce_motion(1);
+  moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_ONLINE);
+  pump(260);
+  moto_ui_state_t route = base_state();
+  fill_route(route, 12);
+  check_switch_in_place("navigation status", [&] {
+    route.page = MOTO_UI_PAGE_NAVIGATION;
+    route.mode = MOTO_UI_REROUTING;
+    moto_nav_ui_set_state(&route);
+  });
+  check_switch_in_place("speed", [&] {
+    route.page = MOTO_UI_PAGE_SPEED;
+    moto_nav_ui_set_state(&route);
+  });
+  check_switch_in_place("compass", [&] {
+    route.page = MOTO_UI_PAGE_COMPASS;
+    route.heading_deg = 90;
+    moto_nav_ui_set_state(&route);
+  });
+  check_switch_in_place("music", [&] {
+    moto_nav_ui_set_music_page_enabled(1);
+    moto_nav_ui_set_page(MOTO_UI_PAGE_MUSIC);
+    const moto_music_state_t disconnected{};
+    moto_nav_ui_set_music_state(&disconnected);
+  });
+  moto_nav_ui_set_page(MOTO_UI_PAGE_NAVIGATION);
+  moto_nav_ui_set_music_page_enabled(0);
+}
+
+// Production shutdown: PWR held while the full UI is live. A language that
+// arrives afterwards must not touch the deleted widgets.
+void test_language_after_power_off_from_the_full_ui() {
+  moto_nav_ui_set_language("en-US");
+  // app_main order; the boot screen also retires the previous UI's timers.
+  moto_nav_ui_show_boot_screen();
+  moto_nav_ui_create();
+  moto_ui_state_t route = base_state();
+  fill_route(route, 12);
+  route.mode = MOTO_UI_REROUTING;
+  moto_nav_ui_set_state(&route);
+  pump();
+  moto_nav_ui_show_power_off_screen();
+  CHECK(screen_shows("POWER OFF"));
+  CHECK(std::strcmp(moto_nav_ui_set_language("pt-BR"), "pt-BR") == 0);
+  CHECK(screen_shows("DESLIGANDO"));
+  CHECK(screen_shows("MOTO"));
+  CHECK(lv_obj_get_child_count(lv_screen_active()) == 2);
+  moto_nav_ui_set_language("en-US");
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -641,6 +739,9 @@ int main(int argc, char **argv) {
   if(buffer_rows < 1 || buffer_rows > kHeight) return EXIT_FAILURE;
   if(extra_pool_bytes < 0) return EXIT_FAILURE;
   init_display(buffer_rows, extra_pool_bytes);
+  // Valid before any UI exists.
+  CHECK(std::strcmp(moto_nav_ui_set_language("zh-CN"), "zh-Hans") == 0);
+  moto_nav_ui_set_language("en-US");
 
   // Production cadence: the boot animation completes before the full UI is
   // created, so settle it before moto_nav_ui_create().
@@ -662,6 +763,9 @@ int main(int argc, char **argv) {
   test_diagonal_map_pixels_are_independent_of_partial_buffer_height();
   test_every_language_renders_every_label();
   test_language_switch_updates_visible_text_in_place();
+  test_language_switch_redraws_every_page_in_place();
+  test_language_before_the_ui_is_used_at_creation();
+  test_language_after_power_off_from_the_full_ui();
 
   // Terminal screens run last: they tear the full UI down.
   moto_nav_ui_show_boot_screen();
@@ -677,6 +781,14 @@ int main(int argc, char **argv) {
   pump(260);
   CHECK(power_off.hash == capture().hash);
   CHECK(power_off.hash != settled_boot.hash);
+  // A language arriving during shutdown updates the last frame safely.
+  CHECK(screen_shows("POWER OFF"));
+  CHECK(std::strcmp(moto_nav_ui_set_language("pt-BR"), "pt-BR") == 0);
+  CHECK(screen_shows("DESLIGANDO"));
+  // Nothing else may be written: the full UI's labels no longer exist, and
+  // their freed memory may now hold these two labels.
+  CHECK(screen_shows("MOTO"));
+  CHECK(lv_obj_get_child_count(lv_screen_active()) == 2);
 
   if (failures != 0) {
     std::cerr << failures << " nav_ui render checks failed\n";

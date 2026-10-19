@@ -10,7 +10,8 @@ Outputs (committed, so ESP-IDF and Emscripten builds need no Python):
                                                lv_translation_add_static()
   shared/i18n/generated/device_cjk_symbols.txt  CJK characters the device
                                                font must contain
-  platforms/web/shell/i18n/<language>.json      Web shell messages
+  platforms/web/shell/i18n/messages.js          Web shell messages, plus the
+                                               qps-ploc pseudo-locale
 
 Run with --check to fail instead of writing when an output is stale.
 """
@@ -20,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -27,7 +29,10 @@ CATALOG = REPO_ROOT / "shared/i18n/catalog.json"
 DEVICE_HEADER = REPO_ROOT / "shared/nav_ui/generated/moto_nav_i18n.h"
 DEVICE_SOURCE = REPO_ROOT / "shared/nav_ui/generated/moto_nav_i18n.c"
 DEVICE_CJK_SYMBOLS = REPO_ROOT / "shared/i18n/generated/device_cjk_symbols.txt"
-WEB_DIRECTORY = REPO_ROOT / "platforms/web/shell/i18n"
+WEB_MESSAGES = REPO_ROOT / "platforms/web/shell/i18n/messages.js"
+PSEUDO_LOCALE = "qps-ploc"
+PSEUDO_ACCENTS = str.maketrans("aceinosuyACEINOSUY", "áçéîñöšüýÁÇÉÎÑÖŠÜÝ")
+PARAMETER = re.compile(r"(\{[a-z_]+\})")
 
 DEVICE_PREFIX = "device."
 WEB_PREFIX = "web."
@@ -113,17 +118,26 @@ def device_outputs(catalog: dict) -> dict[Path, str]:
     }
 
 
+def pseudo_localize(text: str) -> str:
+    """Accented, about 40 % longer and bracketed, parameters untouched, so a
+    cut or concatenated string is visible on screen (Microsoft's qps-ploc)."""
+    parts = [part if PARAMETER.fullmatch(part) else part.translate(PSEUDO_ACCENTS)
+             for part in PARAMETER.split(text)]
+    padding = "~" * max(1, round(len(text) * 0.4))
+    return f"[{''.join(parts)} {padding}]"
+
+
 def web_outputs(catalog: dict) -> dict[Path, str]:
     keys = sorted(k for k in catalog["messages"] if k.startswith(WEB_PREFIX))
     if not keys:
         return {}
-    outputs = {}
-    for language in catalog["languages"]:
-        table = {key: catalog["messages"][key][language] for key in keys}
-        outputs[WEB_DIRECTORY / f"{language}.json"] = (
-            json.dumps(table, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        )
-    return outputs
+    tables = {
+        language: {key: catalog["messages"][key][language] for key in keys}
+        for language in catalog["languages"]
+    }
+    tables[PSEUDO_LOCALE] = {key: pseudo_localize(catalog["messages"][key]["en-US"]) for key in keys}
+    body = json.dumps(tables, ensure_ascii=False, indent=2, sort_keys=True)
+    return {WEB_MESSAGES: f"// {GENERATED_NOTE}\nwindow.MotoMessages = Object.freeze({body});\n"}
 
 
 def all_outputs(catalog: dict) -> dict[Path, str]:

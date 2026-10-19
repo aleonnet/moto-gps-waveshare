@@ -575,6 +575,12 @@ extern "C" EMSCRIPTEN_KEEPALIVE void moto_web_set_phone_connection(
       static_cast<moto_ui_phone_connection_t>(normalized));
 }
 
+// The page's language (BCP 47), so the simulated display matches the shell.
+extern "C" EMSCRIPTEN_KEEPALIVE void moto_web_set_language(
+    const char* language) {
+  moto_nav_ui_set_language(language);
+}
+
 extern "C" EMSCRIPTEN_KEEPALIVE void moto_web_set_scenario(int scenario) {
   lifecycle_preview_active = false;
   establish_fixture_route();

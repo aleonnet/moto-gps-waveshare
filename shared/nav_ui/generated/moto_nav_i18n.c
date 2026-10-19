@@ -46,6 +46,9 @@ const char * const moto_nav_i18n_tags[] = {
     "device.status.no_hotspot",
     "device.status.rerouting",
     "device.status.route_cached",
+    "device.unit.km",
+    "device.unit.kmh",
+    "device.unit.m",
     NULL,
 };
 
@@ -191,4 +194,16 @@ const char * const moto_nav_i18n_translations[] = {
     "ROUTE CACHED",
     "ROTA SALVA",
     "ROUTE CACHED",
+    /* device.unit.km */
+    "km",
+    "km",
+    "km",
+    /* device.unit.kmh */
+    "km/h",
+    "km/h",
+    "km/h",
+    /* device.unit.m */
+    "m",
+    "m",
+    "m",
 };

@@ -285,7 +285,7 @@ void dump_golden() {
   std::cout << "locale.payload=" << hex(ByteView(locale)) << '\n';
   std::cout << "locale.frame="
             << frame_hex(fragment_or_fail(MessageType::LocaleSelection, 2,
-                                          locale, 182, AckRequested))
+                                          locale, 182))
             << '\n';
 }
 
@@ -376,7 +376,7 @@ void test_golden_vectors() {
   CHECK(expected.at("locale.payload") == hex(ByteView(locale)));
   CHECK(expected.at("locale.frame") ==
         frame_hex(fragment_or_fail(MessageType::LocaleSelection, 2, locale,
-                                   182, AckRequested)));
+                                   182)));
   CHECK(static_cast<std::uint8_t>(MessageType::LocaleSelection) == 0x15U);
   CHECK(CapabilityLocale == (1U << 8U));
 }
@@ -592,6 +592,17 @@ void test_validation_failures() {
   CHECK(decode_message(MessageType::LocaleSelection,
                        ByteView(oversized_locale)).error ==
         Error::StringTooLong);
+  // The decoder applies the same rules to bytes received from a peer.
+  const auto decode_tag = [](std::string tag) {
+    Bytes payload = {kPayloadRevision, static_cast<std::uint8_t>(tag.size())};
+    payload.insert(payload.end(), tag.begin(), tag.end());
+    return decode_message(MessageType::LocaleSelection, ByteView(payload)).error;
+  };
+  CHECK(decode_tag("zh-Hans") == Error::None);
+  CHECK(decode_tag("") == Error::OutOfRange);
+  CHECK(decode_tag("1pt") == Error::OutOfRange);
+  CHECK(decode_tag("pt_BR") == Error::OutOfRange);
+  CHECK(decode_tag("pt-BR\n") == Error::OutOfRange);
   Bytes trailing_locale = encode_or_fail(Message{locale_fixture()});
   trailing_locale.push_back(0);
   CHECK(decode_message(MessageType::LocaleSelection,

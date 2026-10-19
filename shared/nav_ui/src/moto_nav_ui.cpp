@@ -132,6 +132,7 @@ struct Ui {
     const char *nav_status_tag = nullptr;
     lv_obj_t *nav_distance = nullptr;
     lv_obj_t *nav_unit = nullptr;
+    const char *nav_unit_tag = nullptr;
     lv_obj_t *nav_maneuver = nullptr;
     moto_maneuver_t nav_maneuver_type = MOTO_MANEUVER_STRAIGHT;
     lv_obj_t *nav_limit = nullptr;
@@ -169,6 +170,7 @@ struct Ui {
     lv_point_precise_t compass_tick_points[kCompassTickCount][2]{};
     lv_obj_t *compass_letters[4]{};
     std::uint16_t compass_heading_deg = 0;
+    std::uint16_t compass_speed_kph = 0;
 
     lv_obj_t *music_source = nullptr;
     lv_obj_t *music_title = nullptr;
@@ -1434,18 +1436,23 @@ void update_navigation(const moto_ui_state_t *state) {
     if(!has_guidance) return;
 
     char value[16];
-    const char *unit = "m";
+    const char *unit = "device.unit.m";
     if(state->distance_to_maneuver_m >= 1000) {
         std::snprintf(value, sizeof(value), "%.1f",
                       state->distance_to_maneuver_m / 1000.0);
-        unit = "km";
+        unit = "device.unit.km";
     } else {
         std::snprintf(value, sizeof(value), "%u",
                       static_cast<unsigned>(state->distance_to_maneuver_m));
     }
     if(state->mode == MOTO_UI_ARRIVED) std::snprintf(value, sizeof(value), "0");
     lv_label_set_text(ui.nav_distance, value);
-    lv_label_set_text(ui.nav_unit, unit);
+    // A tagged label follows language changes by itself; set it only when the
+    // unit changes, as the tag is copied on every call.
+    if(ui.nav_unit_tag != unit) {
+        ui.nav_unit_tag = unit;
+        lv_label_set_translation_tag(ui.nav_unit, unit);
+    }
     // This number is never the total trip distance. Its physical attachment to
     // the maneuver glyph makes that meaning clear without an explanatory label.
     lv_obj_align(ui.nav_distance, LV_ALIGN_TOP_LEFT, px(151), px(244));
@@ -1492,6 +1499,13 @@ void update_compass_letters() {
     }
 }
 
+void update_compass_speed() {
+    char speed[24];
+    std::snprintf(speed, sizeof(speed), "%u %s",
+                  static_cast<unsigned>(ui.compass_speed_kph), lv_tr("device.unit.kmh"));
+    lv_label_set_text(ui.compass_speed, speed);
+}
+
 void update_compass(const moto_ui_state_t *state) {
     char heading[12];
     std::snprintf(heading, sizeof(heading), "%03u°",
@@ -1499,10 +1513,8 @@ void update_compass(const moto_ui_state_t *state) {
     lv_label_set_text(ui.compass_heading, heading);
     ui.compass_heading_deg = state->heading_deg;
     update_compass_letters();
-    char speed[20];
-    std::snprintf(speed, sizeof(speed), "%u km/h",
-                  static_cast<unsigned>(state->speed_kph));
-    lv_label_set_text(ui.compass_speed, speed);
+    ui.compass_speed_kph = state->speed_kph;
+    update_compass_speed();
 
     const double heading_rad = state->heading_deg * kPi / 180.0;
     for(int i = 0; i < kCompassTickCount; ++i) {
@@ -1666,7 +1678,7 @@ void create_navigation_page() {
                         LV_EVENT_DRAW_MAIN_END, nullptr);
 
     ui.nav_distance = make_label(page, &moto_font_latin_48, kWhite, "300");
-    ui.nav_unit = make_label(page, &moto_font_latin_20, kQuiet, "m");
+    ui.nav_unit = make_label(page, &moto_font_latin_20, kQuiet, "");
 
     ui.nav_limit = lv_obj_create(page);
     lv_obj_set_size(ui.nav_limit, px(61), px(61));
@@ -1786,7 +1798,8 @@ void create_speed_page() {
     }
     ui.speed_value = make_label(page, &moto_font_latin_48, kWhite, "72");
     lv_obj_align(ui.speed_value, LV_ALIGN_CENTER, 0, px(-10));
-    lv_obj_t *unit = make_label(page, &moto_font_latin_20, kQuiet, "km/h");
+    lv_obj_t *unit = make_label(page, &moto_font_latin_20, kQuiet, "");
+    lv_label_set_translation_tag(unit, "device.unit.kmh");
     lv_obj_set_style_text_letter_space(unit, px(2), 0);
     lv_obj_align(unit, LV_ALIGN_CENTER, 0, px(45));
     lv_obj_t *caption = make_label(page, &moto_font_latin_16, kQuiet, "");
@@ -1821,7 +1834,7 @@ void create_compass_page() {
     lv_obj_align(ui.compass_heading, LV_ALIGN_CENTER, 0, px(-37));
     ui.compass_cardinal = make_label(page, &moto_font_latin_20, kAmber, "");
     lv_obj_align(ui.compass_cardinal, LV_ALIGN_CENTER, 0, px(10));
-    ui.compass_speed = make_label(page, &moto_font_latin_20, kWhite, "72 km/h");
+    ui.compass_speed = make_label(page, &moto_font_latin_20, kWhite, "");
     lv_obj_set_style_text_letter_space(ui.compass_speed, px(1), 0);
     lv_obj_align(ui.compass_speed, LV_ALIGN_CENTER, 0, px(57));
 }
@@ -2036,8 +2049,9 @@ extern "C" void moto_nav_ui_show_power_off_screen(void) {
     lv_obj_align(brand, LV_ALIGN_CENTER, 0, px(-18));
 
     lv_obj_t *status = make_label(ui.screen, &moto_font_latin_16,
-                                  LV_COLOR_MAKE(0xFF, 0xFF, 0xFF),
-                                  lv_tr("device.power_off"));
+                                  LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), "");
+    // Tagged, so a language arriving during shutdown still updates it.
+    lv_label_set_translation_tag(status, "device.power_off");
     lv_obj_set_style_text_letter_space(status, px(4), 0);
     lv_obj_align(status, LV_ALIGN_CENTER, 0, px(35));
 }
@@ -2054,6 +2068,7 @@ extern "C" const char *moto_nav_ui_set_language(const char *bcp47) {
     }
     show_nav_status(ui.nav_status_tag);
     update_compass_letters();
+    update_compass_speed();
     update_music_view();
     return selected_language;
 }

@@ -5,6 +5,7 @@
   const runtimeUrl = `./runtime/moto-gps-device.js?v=${buildId}`;
   const controller = window.MotoNavController;
   if (!controller) return;
+  const { t } = window.MotoI18n;
 
   window.MotoNavLiveBridge = Object.freeze({
     onRouteRequest(command) {
@@ -44,6 +45,7 @@
       demoPage: module.cwrap("moto_web_set_page", null, ["number"]),
       previewPhoneLifecycle: module.cwrap("moto_web_preview_phone_lifecycle", null, ["number"]),
       setPhoneConnection: module.cwrap("moto_web_set_phone_connection", null, ["number"]),
+      setLanguage: module.cwrap("moto_web_set_language", null, ["string"]),
     });
   }
 
@@ -60,10 +62,10 @@
         console.error(text);
       },
       onAbort(reason) {
-        controller.runtimeFailed(`WASM 已中止：${String(reason)}`);
+        controller.runtimeFailed(t("web.runtime.aborted", { reason: String(reason) }));
       },
       onExit(status) {
-        if (status !== 0) controller.runtimeFailed(`WASM 异常退出：${status}`);
+        if (status !== 0) controller.runtimeFailed(t("web.runtime.exited", { status }));
       },
       onRuntimeInitialized() {
         controller.attachRuntime(createApi(window.Module));
@@ -73,7 +75,7 @@
     const script = document.createElement("script");
     script.src = runtimeUrl;
     script.async = true;
-    script.addEventListener("error", () => controller.runtimeFailed("WASM 加载失败"));
+    script.addEventListener("error", () => controller.runtimeFailed(t("web.runtime.download_failed")));
     document.body.append(script);
   }
 
@@ -82,5 +84,5 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       mountRuntime();
     })
-    .catch(() => controller.runtimeFailed("共享导航画面未构建"));
+    .catch(() => controller.runtimeFailed(t("web.runtime.not_built")));
 })();

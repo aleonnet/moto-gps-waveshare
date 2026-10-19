@@ -145,7 +145,8 @@ typedef struct {
 } moto_ui_state_t;
 
 /**
- * Select the display language from a BCP 47 tag: "pt*" selects pt-BR, "zh*"
+ * Select the display language from a BCP 47 tag by its language subtag:
+ * "pt" (any region, e.g. "pt-PT") selects pt-BR, "zh" (any script or region)
  * selects zh-Hans and anything else (including NULL) en-US. Valid at any time
  * after lv_init(); the choice survives moto_nav_ui_create() and the boot and
  * power-off screens. Returns the selected tag as a static string.

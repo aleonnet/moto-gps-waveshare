@@ -5,7 +5,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <future>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -297,11 +299,32 @@ void test_music_capability_state_and_touch_commands() {
 }
 
 struct LanguageStore {
+  PhoneNavBridge* bridge = nullptr;
   std::vector<std::string> writes;
+  bool called_under_board_lock = false;
+  bool called_under_state_lock = false;
 };
 
+// The store writes flash; it must run with neither the display lock nor the
+// bridge state held, or BLE reception and drawing would wait on NVS.
 void record_language(const char* language, void* context) {
-  static_cast<LanguageStore*>(context)->writes.emplace_back(language);
+  auto* store = static_cast<LanguageStore*>(context);
+  store->writes.emplace_back(language);
+  if (moto::test::phone_nav_bridge_board_lock_depth() != 0) {
+    store->called_under_board_lock = true;
+  }
+  // on_link_state takes state_mutex_ first; from another thread it can only
+  // finish while this callback runs if the callback does not hold it. A
+  // detached thread finishes later either way, so a defect cannot hang tests.
+  auto done = std::make_shared<std::promise<void>>();
+  std::future<void> finished = done->get_future();
+  std::thread([bridge = store->bridge, done] {
+    bridge->on_link_state(true);
+    done->set_value();
+  }).detach();
+  if (finished.wait_for(std::chrono::seconds(1)) != std::future_status::ready) {
+    store->called_under_state_lock = true;
+  }
 }
 
 void test_phone_language_reaches_the_ui_and_is_stored_once() {
@@ -309,6 +332,7 @@ void test_phone_language_reaches_the_ui_and_is_stored_once() {
   moto::nav::NavPresenter presenter;
   PhoneNavBridge bridge(presenter);
   LanguageStore store;
+  store.bridge = &bridge;
   // The device booted in the language it stored last time.
   bridge.set_language_store(record_language, &store, "pt-BR");
   bridge.on_link_state(true);
@@ -328,6 +352,9 @@ void test_phone_language_reaches_the_ui_and_is_stored_once() {
   pump(bridge);
   CHECK(moto::test::phone_nav_bridge_ui_language() == "zh-Hans");
   CHECK(store.writes == std::vector<std::string>{"zh-Hans"});
+  CHECK(!store.called_under_board_lock);
+  CHECK(!store.called_under_state_lock);
+  CHECK(!moto::test::phone_nav_bridge_language_set_outside_board_lock());
 
   // Losing the phone keeps the display in its last language.
   const int sets_before_disconnect =

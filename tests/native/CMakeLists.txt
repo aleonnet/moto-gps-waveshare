@@ -64,7 +64,12 @@ if(TARGET lvgl)
   set(MOTO_NATIVE_LVGL_HEAP_BYTES "8388608" CACHE STRING
       "LVGL internal heap for native render tests; use 65536 for board parity")
   target_compile_definitions(lvgl PRIVATE
-    CONFIG_LV_MEM_SIZE=${MOTO_NATIVE_LVGL_HEAP_BYTES})
+    CONFIG_LV_MEM_SIZE=${MOTO_NATIVE_LVGL_HEAP_BYTES}
+    # LVGL's own check that every widget call targets a live object; a call on
+    # a deleted label aborts the render tests instead of passing silently.
+    LV_USE_ASSERT_OBJ=1
+    "LV_ASSERT_HANDLER_INCLUDE=<lvgl_test_assert.h>")
+  target_include_directories(lvgl PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
   add_executable(nav_ui_render_tests nav_ui_render_tests.cpp)
   target_link_libraries(nav_ui_render_tests PRIVATE moto_nav_ui lvgl)
   target_compile_features(nav_ui_render_tests PRIVATE cxx_std_17)
@@ -137,3 +142,10 @@ add_test(NAME ble_protocol_tests COMMAND ble_protocol_tests)
 add_test(NAME connection_epoch_gate_tests COMMAND connection_epoch_gate_tests)
 add_test(NAME motion_heading_fusion_tests COMMAND motion_heading_fusion_tests)
 add_test(NAME phone_nav_bridge_tests COMMAND phone_nav_bridge_tests)
+
+# The Web shell's i18n.js runs in Node with the generated messages.
+find_program(MOTO_NODE node)
+if(MOTO_NODE)
+  add_test(NAME web_i18n_tests
+    COMMAND "${MOTO_NODE}" --test "${CMAKE_CURRENT_LIST_DIR}/../web/i18n.test.mjs")
+endif()

@@ -1,7 +1,12 @@
 (function () {
   "use strict";
 
-  const NAV_STATE = ["空闲", "等待定位", "路线规划", "导航中", "重新规划", "已到达"];
+  const i18n = window.MotoI18n;
+  const { t } = i18n;
+  const NAV_STATE = ["web.state.idle", "web.state.acquiring", "web.state.planning",
+    "web.state.navigating", "web.state.rerouting", "web.state.arrived"];
+  const TRAFFIC_LABEL = ["web.traffic.unknown", "web.traffic.free_flow", "web.traffic.slow",
+    "web.traffic.congested", "web.traffic.severe"];
   const MANEUVER = {
     unknown: 0,
     continue: 1,
@@ -111,6 +116,9 @@
     dialogNetwork: document.querySelector("#dialog-network"),
     toast: document.querySelector("#toast"),
     canvas: document.querySelector("#canvas"),
+    languageSelect: document.querySelector("#language-select"),
+    languageNote: document.querySelector("#language-note"),
+    credits: document.querySelector("#credits"),
   };
 
   let placeholderContext = elements.canvas.getContext("2d");
@@ -146,7 +154,7 @@
     context.fillStyle = "#74817e";
     context.textAlign = "center";
     context.font = "700 11px ui-monospace, monospace";
-    context.fillText("SHARED NAV LOADING", 180, 312);
+    context.fillText(t("web.runtime.placeholder"), 180, 312);
     context.restore();
   }
 
@@ -174,6 +182,50 @@
     elements.rideAlert.hidden = !message;
   }
 
+  function setWakeState(key) {
+    const dot = document.createElement("i");
+    elements.wakeState.replaceChildren(dot, ` ${t(key)}`);
+  }
+
+  function networkText() {
+    return t(navigator.onLine ? "web.network.online" : "web.network.offline");
+  }
+
+  /** Fills a message whose {name} parameters are DOM nodes (links). */
+  function renderTemplate(element, key, nodes) {
+    const parts = t(key).split(/\{([a-z_]+)\}/);
+    element.replaceChildren(...parts.map((part, index) =>
+      index % 2 === 1 && nodes[part] ? nodes[part] : part));
+  }
+
+  function link(href, text) {
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.textContent = text;
+    return anchor;
+  }
+
+  function setupLanguageSettings() {
+    const options = ["system", ...i18n.supported].map((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value === "system"
+        ? t("web.status.language_system", { language: i18n.languageName(i18n.browserLanguage) })
+        : i18n.languageName(value);
+      option.selected = value === i18n.choice;
+      return option;
+    });
+    elements.languageSelect.replaceChildren(...options);
+    elements.languageSelect.addEventListener("change", () => {
+      if (!state.navigating) i18n.setChoice(elements.languageSelect.value);
+    });
+    const repository = "https://github.com/mx3353672833-debug/moto-gps-waveshare";
+    renderTemplate(elements.credits, "web.status.author", {
+      author: link(repository, "Maler X"),
+      license: link(`${repository}/blob/main/LICENSE.md`, t("web.status.license")),
+    });
+  }
+
   function setView(view) {
     state.view = view;
     document.body.dataset.view = view;
@@ -184,39 +236,45 @@
     if (ring && view === "navigation") elements.rideInstrument.append(ring);
     if (ring && view === "route") elements.previewInstrument.append(ring);
     window.scrollTo({ top: 0, behavior: "instant" });
+    // A language change reloads the page, so it waits until the ride ends.
+    elements.languageSelect.disabled = state.navigating;
+    elements.languageNote.hidden = !state.navigating;
   }
 
   function updateSystemState() {
-    let label = "可以导航";
-    let detail = "定位与路线已就绪";
+    let label = t("web.system.ready");
+    let detail = t("web.system.ready_detail");
     let tone = "ready";
 
     if (!state.backendReady) {
-      label = "服务未配置";
-      detail = ["fixture", "disabled"].includes(state.backendProvider) ? "需要高德 Web 服务 Key" : "路线接口不可用";
+      label = t("web.system.no_service");
+      detail = t(["fixture", "disabled"].includes(state.backendProvider)
+        ? "web.system.needs_key" : "web.system.route_api_down");
       tone = "error";
     } else if (!state.runtimeReady) {
-      label = "画面加载中";
-      detail = "共享 LVGL 运行时";
+      label = t("web.system.loading_screen");
+      detail = t("web.system.loading_screen_detail");
       tone = "loading";
     } else if (!state.currentPosition) {
-      label = state.locationPending ? "正在定位" : "等待定位";
-      detail = "点击启用当前位置";
+      label = t(state.locationPending ? "web.system.locating" : "web.system.waiting_location");
+      detail = t("web.system.enable_location");
       tone = "loading";
     }
 
     elements.systemState.dataset.tone = tone;
     elements.systemStateLabel.textContent = label;
     elements.systemStateDetail.textContent = detail;
-    elements.dialogBackend.textContent = state.backendReady ? "已连接高德" : "不可用于真实导航";
-    elements.dialogRuntime.textContent = state.runtimeReady ? "LVGL 已运行" : "加载中";
-    elements.dialogLocation.textContent = state.currentPosition ? `已定位 · ±${Math.round(state.currentPosition.coords.accuracy)} m` : "未授权";
-    elements.dialogNetwork.textContent = navigator.onLine ? "在线" : "离线";
+    elements.dialogBackend.textContent = t(state.backendReady ? "web.status.amap_connected" : "web.status.amap_unusable");
+    elements.dialogRuntime.textContent = t(state.runtimeReady ? "web.status.lvgl_running" : "web.status.loading");
+    elements.dialogLocation.textContent = state.currentPosition
+      ? t("web.status.located", { meters: i18n.number(Math.round(state.currentPosition.coords.accuracy)) })
+      : t("web.status.not_allowed");
+    elements.dialogNetwork.textContent = networkText();
 
     const canSearch = state.backendReady && state.runtimeReady && Boolean(state.currentPosition);
     elements.destinationQuery.disabled = !canSearch;
     if (canSearch && document.activeElement !== elements.destinationQuery && state.view === "setup") {
-      elements.destinationQuery.placeholder = "输入城市和地点，例如：济南奥体中心";
+      elements.destinationQuery.placeholder = t("web.search.placeholder");
     }
   }
 
@@ -230,10 +288,10 @@
     try {
       body = await response.json();
     } catch {
-      throw new Error(`服务返回了无法读取的数据（HTTP ${response.status}）`);
+      throw new Error(t("web.error.unreadable", { status: response.status }));
     }
     if (!response.ok) {
-      const error = new Error(body?.error?.message || `请求失败（HTTP ${response.status}）`);
+      const error = new Error(body?.error?.message || t("web.error.request_failed", { status: response.status }));
       error.code = body?.error?.code;
       error.retryable = body?.error?.retryable;
       throw error;
@@ -253,12 +311,12 @@
       state.backendProvider = String(health.provider ?? "unknown");
       state.backendReady = health.ready_for_live_navigation === true;
       if (!state.backendReady) {
-        setFeedback("服务器已启动，但还没有配置高德 Web 服务 Key。", "error");
+        setFeedback(t("web.backend.needs_key"), "error");
       }
     } catch {
       state.backendProvider = "offline";
       state.backendReady = false;
-      setFeedback("真实路线服务尚未上线，当前无法开始导航。", "error");
+      setFeedback(t("web.backend.offline"), "error");
     }
     updateSystemState();
   }
@@ -276,11 +334,12 @@
     state.locationPending = false;
     const accuracy = Math.round(position.coords.accuracy);
     elements.locationCard.classList.add("is-ready");
-    elements.locationTitle.textContent = accuracy <= 25 ? "位置已锁定" : "定位精度较低";
-    elements.locationCopy.textContent = `当前精度约 ±${accuracy} 米${accuracy > 50 ? "，请到开阔处等待" : "，持续实时更新"}`;
-    elements.locationButton.textContent = "重新定位";
-    elements.locationAccuracy.textContent = `GPS ${accuracy} m`;
-    elements.dialogLocation.textContent = `已定位 · ±${accuracy} m`;
+    elements.locationTitle.textContent = t(accuracy <= 25 ? "web.location.locked" : "web.location.low_accuracy");
+    elements.locationCopy.textContent = t(accuracy > 50 ? "web.location.accuracy_wait" : "web.location.accuracy_live",
+      { meters: i18n.number(accuracy) });
+    elements.locationButton.textContent = t("web.location.again");
+    elements.locationAccuracy.textContent = `GPS ${i18n.distance(accuracy)}`;
+    elements.dialogLocation.textContent = t("web.status.located", { meters: i18n.number(accuracy) });
 
     if (state.runtimeReady) {
       const coords = position.coords;
@@ -297,18 +356,18 @@
   }
 
   function locationErrorMessage(error) {
-    if (error?.code === 1) return "定位权限被拒绝，请在 Safari 网站设置中允许位置访问。";
-    if (error?.code === 2) return "暂时无法取得位置，请到室外或检查系统定位服务。";
-    if (error?.code === 3) return "定位超时，请稍后重试。";
-    return "定位失败，请检查系统定位权限。";
+    if (error?.code === 1) return t("web.location.denied");
+    if (error?.code === 2) return t("web.location.unavailable");
+    if (error?.code === 3) return t("web.location.timeout");
+    return t("web.location.failed");
   }
 
   function onLocationError(error) {
     state.locationPending = false;
     elements.locationCard.classList.remove("is-ready");
-    elements.locationTitle.textContent = "没有拿到位置";
+    elements.locationTitle.textContent = t("web.location.failed_title");
     elements.locationCopy.textContent = locationErrorMessage(error);
-    elements.locationButton.textContent = "重试定位";
+    elements.locationButton.textContent = t("web.location.retry");
     setFeedback(locationErrorMessage(error), "error");
     updateSystemState();
   }
@@ -335,26 +394,26 @@
         timestamp: Date.now(),
       };
       feedPosition(position);
-      setFeedback("本地测试位置已就绪，现在输入目的地。", "info");
+      setFeedback(t("web.location.test_ready"), "info");
       elements.destinationQuery.focus({ preventScroll: true });
       return;
     }
     if (!window.isSecureContext || !navigator.geolocation) {
       onLocationError({ code: 0 });
-      elements.locationCopy.textContent = "手机定位要求 HTTPS 页面和支持定位的浏览器。";
+      elements.locationCopy.textContent = t("web.location.needs_https");
       return;
     }
     state.locationPending = true;
-    elements.locationTitle.textContent = "正在锁定位置";
-    elements.locationCopy.textContent = "请在系统提示中允许精确位置。";
-    elements.locationButton.textContent = "定位中…";
+    elements.locationTitle.textContent = t("web.location.locking");
+    elements.locationCopy.textContent = t("web.location.allow_precise");
+    elements.locationButton.textContent = t("web.location.locating_button");
     updateSystemState();
     navigator.geolocation.getCurrentPosition(
       (position) => {
         feedPosition(position);
         startPositionWatch();
         if (state.backendReady && state.runtimeReady) {
-          setFeedback("位置已就绪，现在输入目的地。", "info");
+          setFeedback(t("web.location.ready"), "info");
           elements.destinationQuery.focus({ preventScroll: true });
         }
       },
@@ -376,9 +435,9 @@
       const copy = document.createElement("span");
       copy.className = "result-copy";
       const name = document.createElement("b");
-      name.textContent = place.name || "未命名地点";
+      name.textContent = place.name || t("web.place.unnamed");
       const address = document.createElement("span");
-      address.textContent = [place.display_area, place.address].filter(Boolean).join(" · ") || "地址未提供";
+      address.textContent = [place.display_area, place.address].filter(Boolean).join(" · ") || t("web.place.no_address");
       const arrow = document.createElement("span");
       arrow.className = "result-arrow";
       arrow.textContent = "›";
@@ -396,27 +455,29 @@
     if (query.length < 2) {
       if (state.searchController) state.searchController.abort();
       elements.placeResults.replaceChildren();
-      setFeedback(query.length ? "至少输入两个字。" : "输入城市和目的地名称。", "info");
+      setFeedback(t(query.length ? "web.search.min_chars" : "web.search.prompt"), "info");
       return;
     }
     if (!state.backendReady) {
-      setFeedback("高德路线服务尚未配置，暂时不能搜索。", "error");
+      setFeedback(t("web.search.no_service"), "error");
       return;
     }
 
     if (state.searchController) state.searchController.abort();
     state.searchController = new AbortController();
-    setFeedback("正在搜索高德地点…", "loading");
+    setFeedback(t("web.search.searching"), "loading");
     try {
       const url = new URL("v1/places", API_BASE);
       url.searchParams.set("keywords", query);
       const result = await fetchJson(url, { signal: state.searchController.signal });
       renderPlaces(Array.isArray(result.places) ? result.places : []);
-      setFeedback(result.places?.length ? `找到 ${result.places.length} 个地点` : "没有找到，试试加上城市或区县。", "info");
+      setFeedback(result.places?.length
+        ? i18n.plural("web.search.found", result.places.length)
+        : t("web.search.none"), "info");
     } catch (error) {
       if (error?.name === "AbortError") return;
       elements.placeResults.replaceChildren();
-      setFeedback(error?.code === "SERVER_MISCONFIGURED" ? "服务器缺少高德 Key。" : "搜索失败，请检查网络后重试。", "error");
+      setFeedback(t(error?.code === "SERVER_MISCONFIGURED" ? "web.search.no_key" : "web.search.failed"), "error");
     }
   }
 
@@ -491,25 +552,12 @@
     for (const segment of route?.traffic ?? []) {
       severity = Math.max(severity, TRAFFIC[segment.level] ?? 0);
     }
-    return ["未知", "畅通", "缓行", "拥堵", "严重拥堵"][severity];
-  }
-
-  function formatDistance(meters) {
-    const value = Number(meters);
-    if (!Number.isFinite(value)) return "--";
-    if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)} km`;
-    return `${Math.max(0, Math.round(value))} m`;
-  }
-
-  function formatDuration(seconds) {
-    const minutes = Math.max(0, Math.round(Number(seconds ?? 0) / 60));
-    if (minutes < 60) return `${minutes} 分钟`;
-    return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`;
+    return t(TRAFFIC_LABEL[severity]);
   }
 
   function updateRouteSummary(route) {
-    elements.routeDuration.textContent = formatDuration(route.total_duration_s);
-    elements.routeDistance.textContent = formatDistance(route.total_distance_m);
+    elements.routeDuration.textContent = i18n.duration(route.total_duration_s);
+    elements.routeDistance.textContent = i18n.distance(route.total_distance_m);
     elements.routeTraffic.textContent = trafficLabel(route);
   }
 
@@ -517,10 +565,10 @@
     if (!state.destination || !state.runtime) return;
     state.activeRouteRequestId = Number(command.requestId);
     if (command.isReroute) {
-      if (state.navigating) setRideAlert("已偏离路线，正在重新规划…");
-      setRouteStatus("检测到偏航，正在从当前位置重新规划…");
+      if (state.navigating) setRideAlert(t("web.route.off_route"));
+      setRouteStatus(t("web.route.rerouting_status"));
     } else {
-      setRouteStatus("正在根据实时路况规划路线…");
+      setRouteStatus(t("web.route.planning_traffic"));
     }
 
     try {
@@ -538,18 +586,18 @@
       feedRouteToRuntime(command.requestId, envelope.route);
       updateRouteSummary(envelope.route);
       elements.startNavigation.disabled = false;
-      setRouteStatus(command.isReroute ? "路线已重新规划。" : "路线已按当前实时路况生成。", "info");
+      setRouteStatus(t(command.isReroute ? "web.route.replanned" : "web.route.generated"), "info");
       if (state.navigating) {
         setRideAlert("");
-        showToast(command.isReroute ? "已切换到新路线" : "路线已更新");
+        showToast(t(command.isReroute ? "web.route.switched" : "web.route.updated"));
       }
     } catch (error) {
       if (state.activeRouteRequestId !== Number(command.requestId)) return;
       state.activeRouteRequestId = null;
       state.runtime.routeFailed(command.requestId, error?.retryable === false ? 0 : 1, Date.now());
-      const message = error?.code === "SERVER_MISCONFIGURED" ? "服务器还没有配置高德 Key。" : "路线规划失败，请检查网络后重试。";
+      const message = t(error?.code === "SERVER_MISCONFIGURED" ? "web.route.no_key" : "web.route.failed");
       setRouteStatus(message, "error");
-      if (state.navigating) setRideAlert("重规划失败，继续沿用当前路线。联网后会自动重试。");
+      if (state.navigating) setRideAlert(t("web.route.reroute_failed"));
     }
   }
 
@@ -604,7 +652,7 @@
 
   function selectDestination(place) {
     if (!state.runtime || !state.currentPosition) {
-      showToast("定位和共享导航画面还未就绪");
+      showToast(t("web.runtime.not_ready"));
       return;
     }
     state.destination = place;
@@ -614,12 +662,12 @@
     state.activeRouteRequestId = null;
     state.activeTrafficRequestId = null;
     elements.routeDestination.textContent = [place.name, place.display_area].filter(Boolean).join(" · ");
-    elements.rideDestination.textContent = place.name || "目的地";
+    elements.rideDestination.textContent = place.name || t("web.ride.destination");
     elements.routeDuration.textContent = "--";
     elements.routeDistance.textContent = "--";
     elements.routeTraffic.textContent = "--";
     elements.startNavigation.disabled = true;
-    setRouteStatus("正在规划实时路线…");
+    setRouteStatus(t("web.route.planning"));
     setView("route");
     state.runtime.setNetwork(navigator.onLine ? 1 : 0);
     state.runtime.start(place.location.latitude_deg, place.location.longitude_deg);
@@ -651,19 +699,19 @@
 
   async function acquireWakeLock() {
     if (!("wakeLock" in navigator) || document.visibilityState !== "visible") {
-      elements.wakeState.innerHTML = "<i></i> 请保持屏幕常亮";
+      setWakeState("web.ride.keep_awake");
       return false;
     }
     try {
       state.wakeLock = await navigator.wakeLock.request("screen");
-      elements.wakeState.innerHTML = "<i></i> 屏幕常亮中";
+      setWakeState("web.ride.awake");
       state.wakeLock.addEventListener("release", () => {
         state.wakeLock = null;
-        elements.wakeState.innerHTML = "<i></i> 常亮已释放";
+        setWakeState("web.ride.awake_released");
       });
       return true;
     } catch {
-      elements.wakeState.innerHTML = "<i></i> 请手动保持亮屏";
+      setWakeState("web.ride.keep_awake_manually");
       return false;
     }
   }
@@ -676,15 +724,15 @@
     setView("navigation");
     setRideAlert("");
     if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance("导航开始，请保持页面在前台");
-      utterance.lang = "zh-CN";
+      const utterance = new SpeechSynthesisUtterance(t("web.ride.start_speech"));
+      utterance.lang = i18n.speechLanguage;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     }
   }
 
   async function cancelNavigation({ confirmEnd = false } = {}) {
-    if (confirmEnd && state.navigating && !window.confirm("结束当前导航并返回搜索？")) return;
+    if (confirmEnd && state.navigating && !window.confirm(t("web.ride.confirm_end"))) return;
     state.navigating = false;
     state.destination = null;
     state.route = null;
@@ -706,33 +754,38 @@
     const navState = state.runtime.getNavState();
     const remainingDistance = state.runtime.getRemainingDistance();
     const remainingDuration = state.runtime.getRemainingDuration();
-    elements.remainingDistance.textContent = formatDistance(remainingDistance);
+    elements.remainingDistance.textContent = i18n.distance(remainingDistance);
     const arrival = new Date(Date.now() + Math.max(0, remainingDuration) * 1000);
-    elements.arrivalTime.textContent = remainingDuration > 0
-      ? arrival.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })
-      : "--:--";
-    elements.rideConnection.textContent = navigator.onLine ? "在线" : "离线";
+    elements.arrivalTime.textContent = remainingDuration > 0 ? i18n.time(arrival) : "--:--";
+    elements.rideConnection.textContent = networkText();
 
-    if (state.navigating && navState === 4) setRideAlert("已偏离路线，正在重新规划…");
+    if (state.navigating && navState === 4) setRideAlert(t("web.route.off_route"));
     if (state.navigating && navState === 5 && !state.arrivedAnnounced) {
       state.arrivedAnnounced = true;
-      setRideAlert("已到达目的地");
+      setRideAlert(t("web.ride.arrived"));
       if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance("已到达目的地");
-        utterance.lang = "zh-CN";
+        const utterance = new SpeechSynthesisUtterance(t("web.ride.arrived"));
+        utterance.lang = i18n.speechLanguage;
         window.speechSynthesis.speak(utterance);
       }
     }
 
     const generation = state.runtime.getRouteGeneration();
     if (generation !== state.lastRouteGeneration) state.lastRouteGeneration = generation;
-    elements.dialogRuntime.textContent = `LVGL 已运行 · ${NAV_STATE[navState] ?? "未知"}`;
+    elements.dialogRuntime.textContent = t("web.status.lvgl_state",
+      { state: t(NAV_STATE[navState] ?? "web.state.unknown") });
   }
 
   function attachRuntime(runtime) {
     state.runtime = runtime;
     state.runtimeReady = true;
     runtime.initialize();
+    // Emscripten calls this just before main(); apply after moto_nav_ui_create().
+    // SDL also renames the tab when it creates its window.
+    window.setTimeout(() => {
+      runtime.setLanguage(i18n.deviceLanguage);
+      document.title = t("web.title");
+    }, 0);
     if (DEVICE_STATE_PREVIEW) {
       state.currentPosition = {
         coords: {
@@ -744,10 +797,10 @@
         },
         timestamp: Date.now(),
       };
-      state.destination = { name: "圆屏连接状态预览", location: {} };
+      state.destination = { name: t("web.preview.lifecycle"), location: {} };
       state.navigating = false;
-      elements.routeDestination.textContent = "圆屏连接状态预览";
-      setRouteStatus("当前为固件连接生命周期验收画面。", "ready");
+      elements.routeDestination.textContent = t("web.preview.lifecycle");
+      setRouteStatus(t("web.preview.lifecycle_status"), "ready");
       setView("route");
       updateSystemState();
       // Emscripten invokes onRuntimeInitialized immediately before entering
@@ -771,11 +824,11 @@
         timestamp: Date.now(),
       };
       state.destination = {
-        name: "山东省大数据产业基地D栋 → 浪潮集团(总部)",
+        name: t("web.demo.route_name"),
         location: {},
       };
       state.navigating = true;
-      elements.rideDestination.textContent = "D栋 → 浪潮集团总部";
+      elements.rideDestination.textContent = t("web.demo.short_name");
       setView("navigation");
       updateSystemState();
       // onRuntimeInitialized fires immediately before Emscripten enters
@@ -811,16 +864,16 @@
   function runtimeFailed(message) {
     state.runtimeReady = false;
     elements.dialogRuntime.textContent = message;
-    setFeedback("共享导航画面加载失败，请刷新页面。", "error");
+    setFeedback(t("web.runtime.load_failed"), "error");
     updateSystemState();
   }
 
   function networkChanged() {
     state.runtime?.setNetwork(navigator.onLine ? 1 : 0);
-    elements.dialogNetwork.textContent = navigator.onLine ? "在线" : "离线";
-    elements.rideConnection.textContent = navigator.onLine ? "在线" : "离线";
+    elements.dialogNetwork.textContent = networkText();
+    elements.rideConnection.textContent = networkText();
     if (!navigator.onLine && state.navigating) {
-      setRideAlert("网络已断开，继续沿用已下载路线；恢复后自动刷新。 ");
+      setRideAlert(t("web.ride.offline"));
     } else if (navigator.onLine && state.navigating) {
       setRideAlert("");
       state.runtime?.tick(Date.now());
@@ -836,7 +889,7 @@
     acquireWakeLock();
     if (state.lastVisibilityPause) {
       state.lastVisibilityPause = false;
-      setRideAlert("页面刚恢复，正在重新校准位置与路线…");
+      setRideAlert(t("web.ride.recalibrating"));
       navigator.geolocation?.getCurrentPosition(
         (position) => {
           feedPosition(position);
@@ -865,7 +918,7 @@
     elements.destinationQuery.value = "";
     elements.placeResults.replaceChildren();
     elements.clearSearch.hidden = true;
-    setFeedback("输入城市和目的地名称。", "info");
+    setFeedback(t("web.search.prompt"), "info");
     elements.destinationQuery.focus();
   });
   elements.routeBack.addEventListener("click", () => cancelNavigation());
@@ -887,6 +940,8 @@
     handleTrafficRequest,
   });
 
+  i18n.apply();
+  setupLanguageSettings();
   drawPlaceholder();
   setView("setup");
   updateSystemState();

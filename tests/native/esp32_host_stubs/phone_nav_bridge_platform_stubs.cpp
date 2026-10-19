@@ -41,6 +41,8 @@ std::string media_title;
 std::string media_artist;
 std::string ui_language;
 int language_set_count = 0;
+int board_lock_depth = 0;
+bool language_set_outside_board_lock = false;
 
 }  // namespace
 
@@ -59,14 +61,24 @@ extern "C" bool board_port_lock(uint32_t) {
     if (!board_lock_available) return false;
   }
   board_mutex.lock();
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  ++board_lock_depth;
   return true;
 }
 
-extern "C" void board_port_unlock(void) { board_mutex.unlock(); }
+extern "C" void board_port_unlock(void) {
+  {
+    const std::lock_guard<std::mutex> lock(probe_mutex);
+    --board_lock_depth;
+  }
+  board_mutex.unlock();
+}
 
 extern "C" const char* moto_nav_ui_set_language(const char* bcp47) {
   const std::lock_guard<std::mutex> lock(probe_mutex);
   ++language_set_count;
+  // LVGL calls are only legal under the display lock.
+  if (board_lock_depth == 0) language_set_outside_board_lock = true;
   ui_language = bcp47 == nullptr ? "" : bcp47;
   return ui_language.c_str();
 }
@@ -189,6 +201,7 @@ void reset_phone_nav_bridge_probe() {
   media_artist.clear();
   ui_language.clear();
   language_set_count = 0;
+  language_set_outside_board_lock = false;
 }
 
 void emit_page_change(moto_ui_page_t page) {
@@ -347,6 +360,16 @@ moto_maneuver_t phone_nav_bridge_last_maneuver() {
 std::string phone_nav_bridge_ui_language() {
   const std::lock_guard<std::mutex> lock(probe_mutex);
   return ui_language;
+}
+
+int phone_nav_bridge_board_lock_depth() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return board_lock_depth;
+}
+
+bool phone_nav_bridge_language_set_outside_board_lock() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return language_set_outside_board_lock;
 }
 
 int phone_nav_bridge_language_set_count() {

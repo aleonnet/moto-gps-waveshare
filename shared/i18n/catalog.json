@@ -1,6 +1,58 @@
 {
-  "languages": ["en-US", "pt-BR", "zh-Hans"],
+  "languages": [
+    "en-US",
+    "pt-BR",
+    "zh-Hans"
+  ],
   "messages": {
+    "device.compass.e": {
+      "comment": "Compass abbreviation: east.",
+      "en-US": "E",
+      "pt-BR": "L",
+      "zh-Hans": "E"
+    },
+    "device.compass.n": {
+      "comment": "Compass abbreviation: north.",
+      "en-US": "N",
+      "pt-BR": "N",
+      "zh-Hans": "N"
+    },
+    "device.compass.ne": {
+      "comment": "Compass abbreviation: northeast.",
+      "en-US": "NE",
+      "pt-BR": "NE",
+      "zh-Hans": "NE"
+    },
+    "device.compass.nw": {
+      "comment": "Compass abbreviation: northwest.",
+      "en-US": "NW",
+      "pt-BR": "NO",
+      "zh-Hans": "NW"
+    },
+    "device.compass.s": {
+      "comment": "Compass abbreviation: south.",
+      "en-US": "S",
+      "pt-BR": "S",
+      "zh-Hans": "S"
+    },
+    "device.compass.se": {
+      "comment": "Compass abbreviation: southeast.",
+      "en-US": "SE",
+      "pt-BR": "SE",
+      "zh-Hans": "SE"
+    },
+    "device.compass.sw": {
+      "comment": "Compass abbreviation: southwest.",
+      "en-US": "SW",
+      "pt-BR": "SO",
+      "zh-Hans": "SW"
+    },
+    "device.compass.w": {
+      "comment": "Compass abbreviation: west.",
+      "en-US": "W",
+      "pt-BR": "O",
+      "zh-Hans": "W"
+    },
     "device.lifecycle.kicker.phone": {
       "comment": "Small caption above the connection symbol while the phone is not linked.",
       "en-US": "MOTO GPS / PHONE LINK",
@@ -19,41 +71,11 @@
       "pt-BR": "MOTO GPS / ROTA",
       "zh-Hans": "MOTO GPS / ROUTE"
     },
-    "device.lifecycle.title.connect_phone": {
-      "comment": "Large title: the device waits for the phone app.",
-      "en-US": "CONNECT PHONE",
-      "pt-BR": "CONECTE O CELULAR",
-      "zh-Hans": "CONNECT PHONE"
-    },
-    "device.lifecycle.title.connecting": {
-      "comment": "Large title: Bluetooth link and handshake in progress.",
-      "en-US": "CONNECTING",
-      "pt-BR": "CONECTANDO",
-      "zh-Hans": "CONNECTING"
-    },
-    "device.lifecycle.title.connected": {
-      "comment": "Large title shown briefly after the handshake completes.",
-      "en-US": "CONNECTED",
-      "pt-BR": "CONECTADO",
-      "zh-Hans": "CONNECTED"
-    },
-    "device.lifecycle.title.ready": {
-      "comment": "Large title: linked, waiting for the rider to pick a destination.",
-      "en-US": "READY TO RIDE",
-      "pt-BR": "PRONTO PARA RODAR",
-      "zh-Hans": "READY TO RIDE"
-    },
-    "device.lifecycle.title.planning": {
-      "comment": "Large title: the phone is computing the route.",
-      "en-US": "BUILDING ROUTE",
-      "pt-BR": "CALCULANDO ROTA",
-      "zh-Hans": "BUILDING ROUTE"
-    },
-    "device.lifecycle.subtitle.open_app": {
-      "comment": "Line under CONNECT PHONE.",
-      "en-US": "Open the phone app",
-      "pt-BR": "Abra o app no celular",
-      "zh-Hans": "请打开手机应用"
+    "device.lifecycle.subtitle.connected": {
+      "comment": "Line under CONNECTED.",
+      "en-US": "Connection established",
+      "pt-BR": "Conexão estabelecida",
+      "zh-Hans": "连接成功"
     },
     "device.lifecycle.subtitle.connecting": {
       "comment": "Line under CONNECTING.",
@@ -61,17 +83,11 @@
       "pt-BR": "Estabelecendo conexão",
       "zh-Hans": "正在建立连接"
     },
-    "device.lifecycle.subtitle.connected": {
-      "comment": "Line under CONNECTED.",
-      "en-US": "Connection established",
-      "pt-BR": "Conexão estabelecida",
-      "zh-Hans": "连接成功"
-    },
-    "device.lifecycle.subtitle.ready": {
-      "comment": "Line under READY TO RIDE.",
-      "en-US": "Choose a destination on the phone",
-      "pt-BR": "Escolha o destino no celular",
-      "zh-Hans": "请在手机选择目的地"
+    "device.lifecycle.subtitle.open_app": {
+      "comment": "Line under CONNECT PHONE.",
+      "en-US": "Open the phone app",
+      "pt-BR": "Abra o app no celular",
+      "zh-Hans": "请打开手机应用"
     },
     "device.lifecycle.subtitle.planning": {
       "comment": "Line under BUILDING ROUTE.",
@@ -79,119 +95,41 @@
       "pt-BR": "Planejando a rota",
       "zh-Hans": "正在规划路线"
     },
-    "device.status.demo": {
-      "comment": "Top status line while the built-in demo ride drives the display.",
-      "en-US": "DEMO RIDE",
-      "pt-BR": "DEMONSTRAÇÃO",
-      "zh-Hans": "DEMO RIDE"
+    "device.lifecycle.subtitle.ready": {
+      "comment": "Line under READY TO RIDE.",
+      "en-US": "Choose a destination on the phone",
+      "pt-BR": "Escolha o destino no celular",
+      "zh-Hans": "请在手机选择目的地"
     },
-    "device.status.acquiring_gps": {
-      "comment": "Top status line: waiting for a usable GPS fix.",
-      "en-US": "ACQUIRING GPS",
-      "pt-BR": "BUSCANDO GPS",
-      "zh-Hans": "ACQUIRING GPS"
+    "device.lifecycle.title.connect_phone": {
+      "comment": "Large title: the device waits for the phone app.",
+      "en-US": "CONNECT PHONE",
+      "pt-BR": "CONECTE O CELULAR",
+      "zh-Hans": "CONNECT PHONE"
     },
-    "device.status.rerouting": {
-      "comment": "Top status line: the route is being recalculated.",
-      "en-US": "REROUTING",
-      "pt-BR": "RECALCULANDO",
-      "zh-Hans": "REROUTING"
+    "device.lifecycle.title.connected": {
+      "comment": "Large title shown briefly after the handshake completes.",
+      "en-US": "CONNECTED",
+      "pt-BR": "CONECTADO",
+      "zh-Hans": "CONNECTED"
     },
-    "device.status.route_cached": {
-      "comment": "Top status line: guidance continues on the stored route without network.",
-      "en-US": "ROUTE CACHED",
-      "pt-BR": "ROTA SALVA",
-      "zh-Hans": "ROUTE CACHED"
+    "device.lifecycle.title.connecting": {
+      "comment": "Large title: Bluetooth link and handshake in progress.",
+      "en-US": "CONNECTING",
+      "pt-BR": "CONECTANDO",
+      "zh-Hans": "CONNECTING"
     },
-    "device.status.arrived": {
-      "comment": "Top status line at the destination.",
-      "en-US": "ARRIVED",
-      "pt-BR": "CHEGOU",
-      "zh-Hans": "ARRIVED"
+    "device.lifecycle.title.planning": {
+      "comment": "Large title: the phone is computing the route.",
+      "en-US": "BUILDING ROUTE",
+      "pt-BR": "CALCULANDO ROTA",
+      "zh-Hans": "BUILDING ROUTE"
     },
-    "device.status.no_hotspot": {
-      "comment": "Top status line: the phone has no mobile data while navigating.",
-      "en-US": "NO HOTSPOT",
-      "pt-BR": "SEM INTERNET",
-      "zh-Hans": "NO HOTSPOT"
-    },
-    "device.speed.title": {
-      "comment": "Title of the speedometer page.",
-      "en-US": "SPEED",
-      "pt-BR": "VELOCIDADE",
-      "zh-Hans": "SPEED"
-    },
-    "device.speed.caption": {
-      "comment": "Caption under the speedometer value.",
-      "en-US": "LIVE SPEED",
-      "pt-BR": "VELOCIDADE ATUAL",
-      "zh-Hans": "LIVE SPEED"
-    },
-    "device.compass.n": {
-      "comment": "Compass abbreviation: north.",
-      "en-US": "N",
-      "pt-BR": "N",
-      "zh-Hans": "N"
-    },
-    "device.compass.ne": {
-      "comment": "Compass abbreviation: northeast.",
-      "en-US": "NE",
-      "pt-BR": "NE",
-      "zh-Hans": "NE"
-    },
-    "device.compass.e": {
-      "comment": "Compass abbreviation: east.",
-      "en-US": "E",
-      "pt-BR": "L",
-      "zh-Hans": "E"
-    },
-    "device.compass.se": {
-      "comment": "Compass abbreviation: southeast.",
-      "en-US": "SE",
-      "pt-BR": "SE",
-      "zh-Hans": "SE"
-    },
-    "device.compass.s": {
-      "comment": "Compass abbreviation: south.",
-      "en-US": "S",
-      "pt-BR": "S",
-      "zh-Hans": "S"
-    },
-    "device.compass.sw": {
-      "comment": "Compass abbreviation: southwest.",
-      "en-US": "SW",
-      "pt-BR": "SO",
-      "zh-Hans": "SW"
-    },
-    "device.compass.w": {
-      "comment": "Compass abbreviation: west.",
-      "en-US": "W",
-      "pt-BR": "O",
-      "zh-Hans": "W"
-    },
-    "device.compass.nw": {
-      "comment": "Compass abbreviation: northwest.",
-      "en-US": "NW",
-      "pt-BR": "NO",
-      "zh-Hans": "NW"
-    },
-    "device.music.phone_not_connected": {
-      "comment": "Music page source line when the phone media link is down.",
-      "en-US": "PHONE NOT CONNECTED",
-      "pt-BR": "CELULAR DESCONECTADO",
-      "zh-Hans": "PHONE NOT CONNECTED"
-    },
-    "device.music.waiting": {
-      "comment": "Music page title while no phone is connected.",
-      "en-US": "Waiting for connection",
-      "pt-BR": "Aguardando conexão",
-      "zh-Hans": "等待连接"
-    },
-    "device.music.phone_media": {
-      "comment": "Music page source line when the phone does not name the player.",
-      "en-US": "PHONE MEDIA",
-      "pt-BR": "MÍDIA DO CELULAR",
-      "zh-Hans": "PHONE MEDIA"
+    "device.lifecycle.title.ready": {
+      "comment": "Large title: linked, waiting for the rider to pick a destination.",
+      "en-US": "READY TO RIDE",
+      "pt-BR": "PRONTO PARA RODAR",
+      "zh-Hans": "READY TO RIDE"
     },
     "device.music.like": {
       "comment": "Small music button that likes the current track.",
@@ -205,11 +143,971 @@
       "pt-BR": "ENVIADO",
       "zh-Hans": "SENT"
     },
+    "device.music.phone_media": {
+      "comment": "Music page source line when the phone does not name the player.",
+      "en-US": "PHONE MEDIA",
+      "pt-BR": "MÍDIA DO CELULAR",
+      "zh-Hans": "PHONE MEDIA"
+    },
+    "device.music.phone_not_connected": {
+      "comment": "Music page source line when the phone media link is down.",
+      "en-US": "PHONE NOT CONNECTED",
+      "pt-BR": "CELULAR DESCONECTADO",
+      "zh-Hans": "PHONE NOT CONNECTED"
+    },
+    "device.music.waiting": {
+      "comment": "Music page title while no phone is connected.",
+      "en-US": "Waiting for connection",
+      "pt-BR": "Aguardando conexão",
+      "zh-Hans": "等待连接"
+    },
     "device.power_off": {
       "comment": "Last frame before the device removes power.",
       "en-US": "POWER OFF",
       "pt-BR": "DESLIGANDO",
       "zh-Hans": "POWER OFF"
+    },
+    "device.speed.caption": {
+      "comment": "Caption under the speedometer value.",
+      "en-US": "LIVE SPEED",
+      "pt-BR": "VELOCIDADE ATUAL",
+      "zh-Hans": "LIVE SPEED"
+    },
+    "device.speed.title": {
+      "comment": "Title of the speedometer page.",
+      "en-US": "SPEED",
+      "pt-BR": "VELOCIDADE",
+      "zh-Hans": "SPEED"
+    },
+    "device.status.acquiring_gps": {
+      "comment": "Top status line: waiting for a usable GPS fix.",
+      "en-US": "ACQUIRING GPS",
+      "pt-BR": "BUSCANDO GPS",
+      "zh-Hans": "ACQUIRING GPS"
+    },
+    "device.status.arrived": {
+      "comment": "Top status line at the destination.",
+      "en-US": "ARRIVED",
+      "pt-BR": "CHEGOU",
+      "zh-Hans": "ARRIVED"
+    },
+    "device.status.demo": {
+      "comment": "Top status line while the built-in demo ride drives the display.",
+      "en-US": "DEMO RIDE",
+      "pt-BR": "DEMONSTRAÇÃO",
+      "zh-Hans": "DEMO RIDE"
+    },
+    "device.status.no_hotspot": {
+      "comment": "Top status line: the phone has no mobile data while navigating.",
+      "en-US": "NO HOTSPOT",
+      "pt-BR": "SEM INTERNET",
+      "zh-Hans": "NO HOTSPOT"
+    },
+    "device.status.rerouting": {
+      "comment": "Top status line: the route is being recalculated.",
+      "en-US": "REROUTING",
+      "pt-BR": "RECALCULANDO",
+      "zh-Hans": "REROUTING"
+    },
+    "device.status.route_cached": {
+      "comment": "Top status line: guidance continues on the stored route without network.",
+      "en-US": "ROUTE CACHED",
+      "pt-BR": "ROTA SALVA",
+      "zh-Hans": "ROUTE CACHED"
+    },
+    "device.unit.km": {
+      "comment": "Unit after the distance to the next turn, from 1 km.",
+      "en-US": "km",
+      "pt-BR": "km",
+      "zh-Hans": "km"
+    },
+    "device.unit.kmh": {
+      "comment": "Speed unit on the speedometer and compass pages.",
+      "en-US": "km/h",
+      "pt-BR": "km/h",
+      "zh-Hans": "km/h"
+    },
+    "device.unit.m": {
+      "comment": "Unit after the distance to the next turn, under 1 km.",
+      "en-US": "m",
+      "pt-BR": "m",
+      "zh-Hans": "m"
+    },
+    "web.backend.needs_key": {
+      "comment": "Feedback: server up but no AMap key.",
+      "en-US": "The server is running but has no AMap web service key yet.",
+      "pt-BR": "O servidor está no ar, mas ainda não tem a chave do serviço web do AMap.",
+      "zh-Hans": "服务器已启动，但还没有配置高德 Web 服务 Key。"
+    },
+    "web.backend.offline": {
+      "comment": "Feedback: the route service is not online.",
+      "en-US": "The live route service is not online yet; navigation cannot start.",
+      "pt-BR": "O serviço de rotas ao vivo ainda não está no ar; não dá para iniciar a navegação.",
+      "zh-Hans": "真实路线服务尚未上线，当前无法开始导航。"
+    },
+    "web.demo.route_name": {
+      "comment": "Name of the built-in Jinan demo route.",
+      "en-US": "Shandong Big Data Industrial Base, Building D → Inspur Group HQ",
+      "pt-BR": "Base Industrial de Big Data de Shandong, Prédio D → Sede do Grupo Inspur",
+      "zh-Hans": "山东省大数据产业基地D栋 → 浪潮集团(总部)"
+    },
+    "web.demo.short_name": {
+      "comment": "Short name of the demo route on the ride bar.",
+      "en-US": "Building D → Inspur HQ",
+      "pt-BR": "Prédio D → Sede da Inspur",
+      "zh-Hans": "D栋 → 浪潮集团总部"
+    },
+    "web.description": {
+      "comment": "Page description for search engines and link previews.",
+      "en-US": "MOTO GPS live phone navigation: AMap routes, rerouting, traffic refresh and the shared LVGL round-display interface.",
+      "pt-BR": "Navegação ao vivo no celular do MOTO GPS: rotas do AMap, recálculo, trânsito atualizado e a mesma interface LVGL da tela redonda.",
+      "zh-Hans": "MOTO GPS 手机前台实时导航：高德路线、偏航重算、路况刷新和共享 LVGL 圆屏界面。"
+    },
+    "web.duration.hours_minutes": {
+      "comment": "Fallback duration; {hours} and {minutes} are numbers.",
+      "en-US": "{hours} h {minutes} min",
+      "pt-BR": "{hours} h {minutes} min",
+      "zh-Hans": "{hours} 小时 {minutes} 分"
+    },
+    "web.duration.minutes": {
+      "comment": "Fallback duration when Intl.DurationFormat is missing; {minutes} is a number.",
+      "en-US": "{minutes} min",
+      "pt-BR": "{minutes} min",
+      "zh-Hans": "{minutes} 分钟"
+    },
+    "web.error.request_failed": {
+      "comment": "Request failed; {status} is the HTTP status.",
+      "en-US": "Request failed (HTTP {status})",
+      "pt-BR": "O pedido falhou (HTTP {status})",
+      "zh-Hans": "请求失败（HTTP {status}）"
+    },
+    "web.error.unreadable": {
+      "comment": "Service returned unreadable data; {status} is the HTTP status.",
+      "en-US": "The service returned unreadable data (HTTP {status})",
+      "pt-BR": "O serviço devolveu dados ilegíveis (HTTP {status})",
+      "zh-Hans": "服务返回了无法读取的数据（HTTP {status}）"
+    },
+    "web.home.back": {
+      "comment": "Accessible name of the brand button that returns to search.",
+      "en-US": "Back to destination search",
+      "pt-BR": "Voltar à busca de destino",
+      "zh-Hans": "返回目的地搜索"
+    },
+    "web.location.accuracy_live": {
+      "comment": "Accuracy line with a good fix; {meters} is a number.",
+      "en-US": "Accuracy about ±{meters} m, updating live",
+      "pt-BR": "Precisão de cerca de ±{meters} m, atualizando ao vivo",
+      "zh-Hans": "当前精度约 ±{meters} 米，持续实时更新"
+    },
+    "web.location.accuracy_wait": {
+      "comment": "Accuracy line with a poor fix; {meters} is a number.",
+      "en-US": "Accuracy about ±{meters} m; wait in an open area",
+      "pt-BR": "Precisão de cerca de ±{meters} m; espere num lugar aberto",
+      "zh-Hans": "当前精度约 ±{meters} 米，请到开阔处等待"
+    },
+    "web.location.again": {
+      "comment": "Button to request a new fix.",
+      "en-US": "Locate again",
+      "pt-BR": "Localizar de novo",
+      "zh-Hans": "重新定位"
+    },
+    "web.location.allow_precise": {
+      "comment": "Hint while the system prompt is open.",
+      "en-US": "Allow precise location in the system prompt.",
+      "pt-BR": "Permita a localização precisa no aviso do sistema.",
+      "zh-Hans": "请在系统提示中允许精确位置。"
+    },
+    "web.location.copy": {
+      "comment": "Location card explanation before a fix.",
+      "en-US": "Route, rerouting and heading are computed from the phone's live location.",
+      "pt-BR": "A rota, o recálculo e a direção vêm da localização ao vivo do celular.",
+      "zh-Hans": "路线、偏航和车头方向都从手机实时定位计算。"
+    },
+    "web.location.denied": {
+      "comment": "Location error: permission denied.",
+      "en-US": "Location permission denied. Allow location for this site in Safari settings.",
+      "pt-BR": "Permissão de localização negada. Permita a localização deste site nos ajustes do Safari.",
+      "zh-Hans": "定位权限被拒绝，请在 Safari 网站设置中允许位置访问。"
+    },
+    "web.location.enable": {
+      "comment": "Button that requests location.",
+      "en-US": "Enable location",
+      "pt-BR": "Ativar localização",
+      "zh-Hans": "启用定位"
+    },
+    "web.location.failed": {
+      "comment": "Location error: other.",
+      "en-US": "Location failed; check the system location permission.",
+      "pt-BR": "A localização falhou; confira a permissão de localização do sistema.",
+      "zh-Hans": "定位失败，请检查系统定位权限。"
+    },
+    "web.location.failed_title": {
+      "comment": "Location card title after an error.",
+      "en-US": "No location yet",
+      "pt-BR": "Sem localização",
+      "zh-Hans": "没有拿到位置"
+    },
+    "web.location.locating_button": {
+      "comment": "Location button while locating.",
+      "en-US": "Locating…",
+      "pt-BR": "Localizando…",
+      "zh-Hans": "定位中…"
+    },
+    "web.location.locked": {
+      "comment": "Location card title with a good fix.",
+      "en-US": "Location locked",
+      "pt-BR": "Localização travada",
+      "zh-Hans": "位置已锁定"
+    },
+    "web.location.locking": {
+      "comment": "Location card title while locating.",
+      "en-US": "Locking your location",
+      "pt-BR": "Travando sua localização",
+      "zh-Hans": "正在锁定位置"
+    },
+    "web.location.low_accuracy": {
+      "comment": "Location card title with a poor fix.",
+      "en-US": "Low location accuracy",
+      "pt-BR": "Precisão baixa",
+      "zh-Hans": "定位精度较低"
+    },
+    "web.location.needs_https": {
+      "comment": "Location needs HTTPS and a capable browser.",
+      "en-US": "Phone location needs an HTTPS page and a browser with location support.",
+      "pt-BR": "A localização do celular precisa de página HTTPS e de um navegador com localização.",
+      "zh-Hans": "手机定位要求 HTTPS 页面和支持定位的浏览器。"
+    },
+    "web.location.ready": {
+      "comment": "Feedback after the first fix.",
+      "en-US": "Location ready; now enter a destination.",
+      "pt-BR": "Localização pronta; agora digite um destino.",
+      "zh-Hans": "位置已就绪，现在输入目的地。"
+    },
+    "web.location.retry": {
+      "comment": "Button after a location error.",
+      "en-US": "Retry location",
+      "pt-BR": "Tentar de novo",
+      "zh-Hans": "重试定位"
+    },
+    "web.location.test_ready": {
+      "comment": "Feedback with the local test position.",
+      "en-US": "Local test position ready; now enter a destination.",
+      "pt-BR": "Posição de teste local pronta; agora digite um destino.",
+      "zh-Hans": "本地测试位置已就绪，现在输入目的地。"
+    },
+    "web.location.timeout": {
+      "comment": "Location error: timeout.",
+      "en-US": "Location timed out; try again shortly.",
+      "pt-BR": "A localização demorou demais; tente de novo em instantes.",
+      "zh-Hans": "定位超时，请稍后重试。"
+    },
+    "web.location.title": {
+      "comment": "Location card title before a fix.",
+      "en-US": "Get your location first",
+      "pt-BR": "Primeiro, sua localização",
+      "zh-Hans": "先获取你的位置"
+    },
+    "web.location.unavailable": {
+      "comment": "Location error: position unavailable.",
+      "en-US": "Location unavailable right now. Go outdoors or check the system location service.",
+      "pt-BR": "Localização indisponível agora. Vá para um lugar aberto ou confira o serviço de localização.",
+      "zh-Hans": "暂时无法取得位置，请到室外或检查系统定位服务。"
+    },
+    "web.network.offline": {
+      "comment": "Network state: offline.",
+      "en-US": "Offline",
+      "pt-BR": "Offline",
+      "zh-Hans": "离线"
+    },
+    "web.network.online": {
+      "comment": "Network state: online.",
+      "en-US": "Online",
+      "pt-BR": "Online",
+      "zh-Hans": "在线"
+    },
+    "web.place.no_address": {
+      "comment": "A result without an address.",
+      "en-US": "No address provided",
+      "pt-BR": "Endereço não informado",
+      "zh-Hans": "地址未提供"
+    },
+    "web.place.unnamed": {
+      "comment": "A result without a name.",
+      "en-US": "Unnamed place",
+      "pt-BR": "Lugar sem nome",
+      "zh-Hans": "未命名地点"
+    },
+    "web.preview.lifecycle": {
+      "comment": "Destination name of the connection-lifecycle preview.",
+      "en-US": "Round display connection preview",
+      "pt-BR": "Prévia da conexão da tela redonda",
+      "zh-Hans": "圆屏连接状态预览"
+    },
+    "web.preview.lifecycle_status": {
+      "comment": "Route status in the connection-lifecycle preview.",
+      "en-US": "Firmware connection lifecycle check screen.",
+      "pt-BR": "Tela de verificação do ciclo de conexão do firmware.",
+      "zh-Hans": "当前为固件连接生命周期验收画面。"
+    },
+    "web.ride.arrival": {
+      "comment": "Label: arrival time.",
+      "en-US": "Arrival",
+      "pt-BR": "Chegada",
+      "zh-Hans": "到达"
+    },
+    "web.ride.arrived": {
+      "comment": "Ride alert and speech at the destination.",
+      "en-US": "You have arrived",
+      "pt-BR": "Você chegou",
+      "zh-Hans": "已到达目的地"
+    },
+    "web.ride.awake": {
+      "comment": "Wake-lock state: active.",
+      "en-US": "Screen kept on",
+      "pt-BR": "Tela mantida ligada",
+      "zh-Hans": "屏幕常亮中"
+    },
+    "web.ride.awake_released": {
+      "comment": "Wake-lock state: released.",
+      "en-US": "Screen lock released",
+      "pt-BR": "Tela ligada liberada",
+      "zh-Hans": "常亮已释放"
+    },
+    "web.ride.confirm_end": {
+      "comment": "Confirmation before ending navigation.",
+      "en-US": "End the current navigation and go back to search?",
+      "pt-BR": "Encerrar a navegação atual e voltar à busca?",
+      "zh-Hans": "结束当前导航并返回搜索？"
+    },
+    "web.ride.connection": {
+      "comment": "Label: network.",
+      "en-US": "Network",
+      "pt-BR": "Rede",
+      "zh-Hans": "连接"
+    },
+    "web.ride.destination": {
+      "comment": "Ride bar fallback destination.",
+      "en-US": "Destination",
+      "pt-BR": "Destino",
+      "zh-Hans": "目的地"
+    },
+    "web.ride.end": {
+      "comment": "End button on the ride bar.",
+      "en-US": "End",
+      "pt-BR": "Encerrar",
+      "zh-Hans": "结束"
+    },
+    "web.ride.keep_awake": {
+      "comment": "Wake-lock state: not available.",
+      "en-US": "Keep the screen on",
+      "pt-BR": "Mantenha a tela ligada",
+      "zh-Hans": "请保持屏幕常亮"
+    },
+    "web.ride.keep_awake_manually": {
+      "comment": "Wake-lock state: failed.",
+      "en-US": "Keep the screen on manually",
+      "pt-BR": "Mantenha a tela ligada manualmente",
+      "zh-Hans": "请手动保持亮屏"
+    },
+    "web.ride.navigating": {
+      "comment": "Ride bar caption.",
+      "en-US": "Navigating",
+      "pt-BR": "Navegando",
+      "zh-Hans": "导航中"
+    },
+    "web.ride.offline": {
+      "comment": "Ride alert when the network drops.",
+      "en-US": "Network lost; keeping the downloaded route. It refreshes when back online.",
+      "pt-BR": "Sem rede; a rota baixada continua. Atualiza quando a rede voltar.",
+      "zh-Hans": "网络已断开，继续沿用已下载路线；恢复后自动刷新。"
+    },
+    "web.ride.recalibrating": {
+      "comment": "Ride alert after the page returns.",
+      "en-US": "Page resumed; recalibrating position and route…",
+      "pt-BR": "Página retomada; recalibrando posição e rota…",
+      "zh-Hans": "页面刚恢复，正在重新校准位置与路线…"
+    },
+    "web.ride.remaining": {
+      "comment": "Label: distance left.",
+      "en-US": "Left",
+      "pt-BR": "Restante",
+      "zh-Hans": "剩余"
+    },
+    "web.ride.start_speech": {
+      "comment": "Spoken when navigation starts.",
+      "en-US": "Navigation started; keep the page in the foreground",
+      "pt-BR": "Navegação iniciada; mantenha a página na frente",
+      "zh-Hans": "导航开始，请保持页面在前台"
+    },
+    "web.ride.stats": {
+      "comment": "Accessible name of the ride figures.",
+      "en-US": "Navigation status",
+      "pt-BR": "Estado da navegação",
+      "zh-Hans": "导航状态"
+    },
+    "web.ride.swipe": {
+      "comment": "Hint under the round display.",
+      "en-US": "Swipe the round display to change pages",
+      "pt-BR": "Deslize a tela redonda para mudar de página",
+      "zh-Hans": "左右滑动圆屏切换页面"
+    },
+    "web.route.back": {
+      "comment": "Button back to search on the route screen.",
+      "en-US": "Change destination",
+      "pt-BR": "Trocar destino",
+      "zh-Hans": "更换目的地"
+    },
+    "web.route.canvas": {
+      "comment": "Accessible name of the round display canvas.",
+      "en-US": "Live round navigation display; swipe left or right for navigation, speedometer, compass and music",
+      "pt-BR": "Tela redonda de navegação ao vivo; deslize para os lados para navegação, velocímetro, bússola e música",
+      "zh-Hans": "实时圆形导航画面；左右滑动可切换导航、马表、指南针和音乐"
+    },
+    "web.route.distance": {
+      "comment": "Label under the total distance.",
+      "en-US": "Total",
+      "pt-BR": "Total",
+      "zh-Hans": "全程"
+    },
+    "web.route.duration": {
+      "comment": "Label under the travel time.",
+      "en-US": "Travel time",
+      "pt-BR": "Tempo estimado",
+      "zh-Hans": "预计用时"
+    },
+    "web.route.eyebrow": {
+      "comment": "Caption above the route title.",
+      "en-US": "ROUTE READY",
+      "pt-BR": "ROTA PRONTA",
+      "zh-Hans": "ROUTE READY"
+    },
+    "web.route.failed": {
+      "comment": "Route error: other.",
+      "en-US": "Route planning failed; check the network and try again.",
+      "pt-BR": "O planejamento da rota falhou; verifique a rede e tente de novo.",
+      "zh-Hans": "路线规划失败，请检查网络后重试。"
+    },
+    "web.route.generated": {
+      "comment": "Route status after planning.",
+      "en-US": "Route generated from live traffic.",
+      "pt-BR": "Rota gerada com o trânsito ao vivo.",
+      "zh-Hans": "路线已按当前实时路况生成。"
+    },
+    "web.route.keep_awake": {
+      "comment": "Hint under the start button.",
+      "en-US": "Keeps the screen on",
+      "pt-BR": "Mantém a tela ligada",
+      "zh-Hans": "保持屏幕常亮"
+    },
+    "web.route.no_key": {
+      "comment": "Route error: the server has no AMap key.",
+      "en-US": "The server has no AMap key yet.",
+      "pt-BR": "O servidor ainda não tem a chave do AMap.",
+      "zh-Hans": "服务器还没有配置高德 Key。"
+    },
+    "web.route.off_route": {
+      "comment": "Ride alert when off the route.",
+      "en-US": "Off route; rerouting…",
+      "pt-BR": "Fora da rota; recalculando…",
+      "zh-Hans": "已偏离路线，正在重新规划…"
+    },
+    "web.route.planning": {
+      "comment": "Route status while planning.",
+      "en-US": "Planning a live route…",
+      "pt-BR": "Planejando uma rota ao vivo…",
+      "zh-Hans": "正在规划实时路线…"
+    },
+    "web.route.planning_traffic": {
+      "comment": "Route status while planning with traffic.",
+      "en-US": "Planning with live traffic…",
+      "pt-BR": "Planejando com o trânsito ao vivo…",
+      "zh-Hans": "正在根据实时路况规划路线…"
+    },
+    "web.route.reading_destination": {
+      "comment": "Placeholder while the destination loads.",
+      "en-US": "Reading the destination",
+      "pt-BR": "Lendo o destino",
+      "zh-Hans": "正在读取目的地"
+    },
+    "web.route.replanned": {
+      "comment": "Route status after a reroute.",
+      "en-US": "Route replanned.",
+      "pt-BR": "Rota replanejada.",
+      "zh-Hans": "路线已重新规划。"
+    },
+    "web.route.reroute_failed": {
+      "comment": "Ride alert when a reroute fails.",
+      "en-US": "Replanning failed; keeping the current route. It retries once online.",
+      "pt-BR": "O replanejamento falhou; a rota atual continua. Tenta de novo quando houver rede.",
+      "zh-Hans": "重规划失败，继续沿用当前路线。联网后会自动重试。"
+    },
+    "web.route.rerouting_status": {
+      "comment": "Route status during a reroute.",
+      "en-US": "Off route detected; replanning from your position…",
+      "pt-BR": "Saída da rota detectada; replanejando a partir da sua posição…",
+      "zh-Hans": "检测到偏航，正在从当前位置重新规划…"
+    },
+    "web.route.start": {
+      "comment": "Start button.",
+      "en-US": "Start navigation",
+      "pt-BR": "Iniciar navegação",
+      "zh-Hans": "开始导航"
+    },
+    "web.route.summary": {
+      "comment": "Accessible name of the route summary.",
+      "en-US": "Route overview",
+      "pt-BR": "Resumo da rota",
+      "zh-Hans": "路线概览"
+    },
+    "web.route.switched": {
+      "comment": "Toast after switching to a new route.",
+      "en-US": "Switched to the new route",
+      "pt-BR": "Mudou para a nova rota",
+      "zh-Hans": "已切换到新路线"
+    },
+    "web.route.title": {
+      "comment": "Route screen title.",
+      "en-US": "Route check",
+      "pt-BR": "Conferir a rota",
+      "zh-Hans": "路线确认"
+    },
+    "web.route.traffic": {
+      "comment": "Label under the traffic summary.",
+      "en-US": "Traffic now",
+      "pt-BR": "Trânsito agora",
+      "zh-Hans": "当前路况"
+    },
+    "web.route.updated": {
+      "comment": "Toast after a route update.",
+      "en-US": "Route updated",
+      "pt-BR": "Rota atualizada",
+      "zh-Hans": "路线已更新"
+    },
+    "web.runtime.aborted": {
+      "comment": "Runtime aborted; {reason} is the technical reason.",
+      "en-US": "WASM aborted: {reason}",
+      "pt-BR": "WASM interrompido: {reason}",
+      "zh-Hans": "WASM 已中止：{reason}"
+    },
+    "web.runtime.download_failed": {
+      "comment": "Runtime script failed to download.",
+      "en-US": "WASM failed to load",
+      "pt-BR": "O WASM não carregou",
+      "zh-Hans": "WASM 加载失败"
+    },
+    "web.runtime.exited": {
+      "comment": "Runtime exited; {status} is the exit code.",
+      "en-US": "WASM exited with an error: {status}",
+      "pt-BR": "WASM saiu com erro: {status}",
+      "zh-Hans": "WASM 异常退出：{status}"
+    },
+    "web.runtime.load_failed": {
+      "comment": "Feedback when the display runtime fails.",
+      "en-US": "The shared navigation display failed to load; reload the page.",
+      "pt-BR": "A tela de navegação compartilhada não carregou; recarregue a página.",
+      "zh-Hans": "共享导航画面加载失败，请刷新页面。"
+    },
+    "web.runtime.not_built": {
+      "comment": "Runtime not built yet.",
+      "en-US": "Shared navigation display not built",
+      "pt-BR": "A tela de navegação compartilhada não foi compilada",
+      "zh-Hans": "共享导航画面未构建"
+    },
+    "web.runtime.not_ready": {
+      "comment": "Toast when selecting before ready.",
+      "en-US": "Location and the shared navigation display are not ready yet",
+      "pt-BR": "A localização e a tela de navegação compartilhada ainda não estão prontas",
+      "zh-Hans": "定位和共享导航画面还未就绪"
+    },
+    "web.runtime.placeholder": {
+      "comment": "Text drawn on the round display while it loads.",
+      "en-US": "SHARED NAV LOADING",
+      "pt-BR": "CARREGANDO NAVEGAÇÃO",
+      "zh-Hans": "SHARED NAV LOADING"
+    },
+    "web.search.after_location": {
+      "comment": "Search hint before location.",
+      "en-US": "Search places nationwide once located",
+      "pt-BR": "Depois de localizar, busque lugares no país todo",
+      "zh-Hans": "定位后即可搜索全国地点"
+    },
+    "web.search.clear": {
+      "comment": "Accessible name of the clear button.",
+      "en-US": "Clear search",
+      "pt-BR": "Limpar busca",
+      "zh-Hans": "清空搜索"
+    },
+    "web.search.failed": {
+      "comment": "Search error: other.",
+      "en-US": "Search failed; check the network and try again.",
+      "pt-BR": "A busca falhou; verifique a rede e tente de novo.",
+      "zh-Hans": "搜索失败，请检查网络后重试。"
+    },
+    "web.search.found.one": {
+      "comment": "Search results count (CLDR plural 'one': 1 in English; 0 and 1 in Portuguese).",
+      "en-US": "{count} place found",
+      "pt-BR": "{count} lugar encontrado",
+      "zh-Hans": "找到 {count} 个地点"
+    },
+    "web.search.found.other": {
+      "comment": "Search results count (CLDR plural 'other'); {count} is a number.",
+      "en-US": "{count} places found",
+      "pt-BR": "{count} lugares encontrados",
+      "zh-Hans": "找到 {count} 个地点"
+    },
+    "web.search.label": {
+      "comment": "Label of the destination field.",
+      "en-US": "Destination",
+      "pt-BR": "Destino",
+      "zh-Hans": "目的地"
+    },
+    "web.search.min_chars": {
+      "comment": "Hint with one character typed.",
+      "en-US": "Type at least two characters.",
+      "pt-BR": "Digite ao menos dois caracteres.",
+      "zh-Hans": "至少输入两个字。"
+    },
+    "web.search.no_key": {
+      "comment": "Search error: the server has no AMap key.",
+      "en-US": "The server has no AMap key.",
+      "pt-BR": "O servidor não tem a chave do AMap.",
+      "zh-Hans": "服务器缺少高德 Key。"
+    },
+    "web.search.no_service": {
+      "comment": "Search error: no route service.",
+      "en-US": "The AMap route service is not set up yet; search is unavailable.",
+      "pt-BR": "O serviço de rotas do AMap ainda não está configurado; a busca não está disponível.",
+      "zh-Hans": "高德路线服务尚未配置，暂时不能搜索。"
+    },
+    "web.search.none": {
+      "comment": "Feedback without results.",
+      "en-US": "Nothing found; try adding the city or district.",
+      "pt-BR": "Nada encontrado; tente incluir a cidade ou o distrito.",
+      "zh-Hans": "没有找到，试试加上城市或区县。"
+    },
+    "web.search.placeholder": {
+      "comment": "Placeholder of the destination field.",
+      "en-US": "City and place, for example: Jinan Olympic Sports Center",
+      "pt-BR": "Cidade e lugar, por exemplo: Centro Olímpico de Jinan",
+      "zh-Hans": "输入城市和地点，例如：济南奥体中心"
+    },
+    "web.search.prompt": {
+      "comment": "Hint with an empty field.",
+      "en-US": "Enter a city and destination name.",
+      "pt-BR": "Digite a cidade e o nome do destino.",
+      "zh-Hans": "输入城市和目的地名称。"
+    },
+    "web.search.results": {
+      "comment": "Accessible name of the results list.",
+      "en-US": "Destination results",
+      "pt-BR": "Resultados de destino",
+      "zh-Hans": "目的地搜索结果"
+    },
+    "web.search.searching": {
+      "comment": "Feedback while searching.",
+      "en-US": "Searching AMap places…",
+      "pt-BR": "Buscando lugares no AMap…",
+      "zh-Hans": "正在搜索高德地点…"
+    },
+    "web.setup.eyebrow": {
+      "comment": "Small caption above the main question.",
+      "en-US": "REAL-TIME ROUTING",
+      "pt-BR": "ROTAS EM TEMPO REAL",
+      "zh-Hans": "REAL-TIME ROUTING"
+    },
+    "web.setup.intro": {
+      "comment": "Intro under the main question.",
+      "en-US": "Turn on location and search for a destination. Keep this page in the foreground while navigating.",
+      "pt-BR": "Ative a localização e busque um destino. Mantenha esta página aberta na frente durante a navegação.",
+      "zh-Hans": "打开定位，搜索目的地。导航时让这个页面保持在前台。"
+    },
+    "web.setup.title": {
+      "comment": "Main question on the first screen.",
+      "en-US": "Where to?",
+      "pt-BR": "Para onde?",
+      "zh-Hans": "去哪儿？"
+    },
+    "web.state.acquiring": {
+      "comment": "Navigation state: waiting for location.",
+      "en-US": "Waiting for location",
+      "pt-BR": "Aguardando localização",
+      "zh-Hans": "等待定位"
+    },
+    "web.state.arrived": {
+      "comment": "Navigation state: arrived.",
+      "en-US": "Arrived",
+      "pt-BR": "Chegou",
+      "zh-Hans": "已到达"
+    },
+    "web.state.idle": {
+      "comment": "Navigation state: idle.",
+      "en-US": "Idle",
+      "pt-BR": "Parado",
+      "zh-Hans": "空闲"
+    },
+    "web.state.navigating": {
+      "comment": "Navigation state: navigating.",
+      "en-US": "Navigating",
+      "pt-BR": "Navegando",
+      "zh-Hans": "导航中"
+    },
+    "web.state.planning": {
+      "comment": "Navigation state: planning.",
+      "en-US": "Planning",
+      "pt-BR": "Planejando",
+      "zh-Hans": "路线规划"
+    },
+    "web.state.rerouting": {
+      "comment": "Navigation state: rerouting.",
+      "en-US": "Rerouting",
+      "pt-BR": "Recalculando",
+      "zh-Hans": "重新规划"
+    },
+    "web.state.unknown": {
+      "comment": "Navigation state: unknown.",
+      "en-US": "Unknown",
+      "pt-BR": "Desconhecido",
+      "zh-Hans": "未知"
+    },
+    "web.status.amap": {
+      "comment": "Status row: AMap service.",
+      "en-US": "AMap service",
+      "pt-BR": "Serviço AMap",
+      "zh-Hans": "高德服务"
+    },
+    "web.status.amap_connected": {
+      "comment": "AMap service connected.",
+      "en-US": "Connected to AMap",
+      "pt-BR": "Conectado ao AMap",
+      "zh-Hans": "已连接高德"
+    },
+    "web.status.amap_unusable": {
+      "comment": "AMap service not usable for live navigation.",
+      "en-US": "Not available for live navigation",
+      "pt-BR": "Indisponível para navegação ao vivo",
+      "zh-Hans": "不可用于真实导航"
+    },
+    "web.status.author": {
+      "comment": "Credit line; {author} links to the author and {license} to the license.",
+      "en-US": "MOTO GPS · by {author} · {license}",
+      "pt-BR": "MOTO GPS · por {author} · {license}",
+      "zh-Hans": "MOTO GPS · 作者 {author} · {license}"
+    },
+    "web.status.close": {
+      "comment": "Accessible name of the close button.",
+      "en-US": "Close",
+      "pt-BR": "Fechar",
+      "zh-Hans": "关闭"
+    },
+    "web.status.display": {
+      "comment": "Status row: shared display.",
+      "en-US": "Shared display",
+      "pt-BR": "Tela compartilhada",
+      "zh-Hans": "共享画面"
+    },
+    "web.status.language": {
+      "comment": "Status row: interface language.",
+      "en-US": "Language",
+      "pt-BR": "Idioma",
+      "zh-Hans": "语言"
+    },
+    "web.status.language_during_ride": {
+      "comment": "Hint: language changes after the ride.",
+      "en-US": "End navigation to change the language.",
+      "pt-BR": "Encerre a navegação para trocar o idioma.",
+      "zh-Hans": "请先结束导航，再更换语言。"
+    },
+    "web.status.language_system": {
+      "comment": "Language option that follows the browser; {language} is the language name.",
+      "en-US": "Browser ({language})",
+      "pt-BR": "Navegador ({language})",
+      "zh-Hans": "跟随浏览器（{language}）"
+    },
+    "web.status.license": {
+      "comment": "Link text to the noncommercial license.",
+      "en-US": "Noncommercial use only",
+      "pt-BR": "Somente uso não comercial",
+      "zh-Hans": "仅限非商业使用"
+    },
+    "web.status.loading": {
+      "comment": "Display runtime loading.",
+      "en-US": "Loading",
+      "pt-BR": "Carregando",
+      "zh-Hans": "加载中"
+    },
+    "web.status.located": {
+      "comment": "Location fixed; {meters} is a number.",
+      "en-US": "Located · ±{meters} m",
+      "pt-BR": "Localizado · ±{meters} m",
+      "zh-Hans": "已定位 · ±{meters} m"
+    },
+    "web.status.location": {
+      "comment": "Status row: phone location.",
+      "en-US": "Phone location",
+      "pt-BR": "Localização do celular",
+      "zh-Hans": "手机定位"
+    },
+    "web.status.lvgl_running": {
+      "comment": "Display runtime running.",
+      "en-US": "LVGL running",
+      "pt-BR": "LVGL em execução",
+      "zh-Hans": "LVGL 已运行"
+    },
+    "web.status.lvgl_state": {
+      "comment": "Display runtime with navigation state; {state} is a state name.",
+      "en-US": "LVGL running · {state}",
+      "pt-BR": "LVGL em execução · {state}",
+      "zh-Hans": "LVGL 已运行 · {state}"
+    },
+    "web.status.network": {
+      "comment": "Status row: network.",
+      "en-US": "Network",
+      "pt-BR": "Rede",
+      "zh-Hans": "网络"
+    },
+    "web.status.not_allowed": {
+      "comment": "Location not allowed.",
+      "en-US": "Not allowed",
+      "pt-BR": "Não autorizado",
+      "zh-Hans": "未授权"
+    },
+    "web.status.requirements": {
+      "comment": "Requirement note in the status dialog.",
+      "en-US": "Live navigation needs HTTPS, location permission and the screen on with the page in front. A locked web page cannot keep reliable location.",
+      "pt-BR": "A navegação ao vivo precisa de HTTPS, permissão de localização e tela ligada com a página na frente. Com a tela bloqueada, a página web não mantém a localização com segurança.",
+      "zh-Hans": "真实导航要求 HTTPS、位置权限和前台亮屏。网页锁屏后不能继续可靠定位。"
+    },
+    "web.status.title": {
+      "comment": "Status dialog title.",
+      "en-US": "Status",
+      "pt-BR": "Estado",
+      "zh-Hans": "运行状态"
+    },
+    "web.system.checking": {
+      "comment": "Status button while checking services.",
+      "en-US": "Checking",
+      "pt-BR": "Verificando",
+      "zh-Hans": "正在检查"
+    },
+    "web.system.checking_detail": {
+      "comment": "Status button detail while checking.",
+      "en-US": "Services and location",
+      "pt-BR": "Serviços e localização",
+      "zh-Hans": "服务与定位"
+    },
+    "web.system.enable_location": {
+      "comment": "Status detail asking to enable location.",
+      "en-US": "Tap to enable your location",
+      "pt-BR": "Toque para ativar sua localização",
+      "zh-Hans": "点击启用当前位置"
+    },
+    "web.system.loading_screen": {
+      "comment": "Status while the round-display runtime loads.",
+      "en-US": "Loading display",
+      "pt-BR": "Carregando a tela",
+      "zh-Hans": "画面加载中"
+    },
+    "web.system.loading_screen_detail": {
+      "comment": "Status detail while the runtime loads.",
+      "en-US": "Shared LVGL runtime",
+      "pt-BR": "Runtime LVGL compartilhado",
+      "zh-Hans": "共享 LVGL 运行时"
+    },
+    "web.system.locating": {
+      "comment": "Status while the first fix is requested.",
+      "en-US": "Locating",
+      "pt-BR": "Localizando",
+      "zh-Hans": "正在定位"
+    },
+    "web.system.needs_key": {
+      "comment": "Status detail: the server has no AMap key.",
+      "en-US": "AMap web service key needed",
+      "pt-BR": "Falta a chave do serviço web do AMap",
+      "zh-Hans": "需要高德 Web 服务 Key"
+    },
+    "web.system.no_service": {
+      "comment": "Status when the route service is not configured.",
+      "en-US": "Service not set up",
+      "pt-BR": "Serviço não configurado",
+      "zh-Hans": "服务未配置"
+    },
+    "web.system.open": {
+      "comment": "Accessible name of the status button.",
+      "en-US": "Show status",
+      "pt-BR": "Ver estado",
+      "zh-Hans": "查看运行状态"
+    },
+    "web.system.ready": {
+      "comment": "Status button when everything is ready.",
+      "en-US": "Ready to navigate",
+      "pt-BR": "Pronto para navegar",
+      "zh-Hans": "可以导航"
+    },
+    "web.system.ready_detail": {
+      "comment": "Status detail when ready.",
+      "en-US": "Location and routes ready",
+      "pt-BR": "Localização e rotas prontas",
+      "zh-Hans": "定位与路线已就绪"
+    },
+    "web.system.route_api_down": {
+      "comment": "Status detail: the route API cannot be reached.",
+      "en-US": "Route service unavailable",
+      "pt-BR": "Serviço de rotas indisponível",
+      "zh-Hans": "路线接口不可用"
+    },
+    "web.system.waiting_location": {
+      "comment": "Status before location is enabled.",
+      "en-US": "Waiting for location",
+      "pt-BR": "Aguardando localização",
+      "zh-Hans": "等待定位"
+    },
+    "web.title": {
+      "comment": "Browser tab title.",
+      "en-US": "MOTO GPS · Phone navigation",
+      "pt-BR": "MOTO GPS · Navegação no celular",
+      "zh-Hans": "MOTO GPS · 手机导航"
+    },
+    "web.traffic.congested": {
+      "comment": "Traffic summary: congested.",
+      "en-US": "Congested",
+      "pt-BR": "Congestionado",
+      "zh-Hans": "拥堵"
+    },
+    "web.traffic.free_flow": {
+      "comment": "Traffic summary: free flow.",
+      "en-US": "Clear",
+      "pt-BR": "Livre",
+      "zh-Hans": "畅通"
+    },
+    "web.traffic.severe": {
+      "comment": "Traffic summary: severe.",
+      "en-US": "Severe congestion",
+      "pt-BR": "Congestionamento severo",
+      "zh-Hans": "严重拥堵"
+    },
+    "web.traffic.slow": {
+      "comment": "Traffic summary: slow.",
+      "en-US": "Slow",
+      "pt-BR": "Lento",
+      "zh-Hans": "缓行"
+    },
+    "web.traffic.unknown": {
+      "comment": "Traffic summary: unknown.",
+      "en-US": "Unknown",
+      "pt-BR": "Desconhecido",
+      "zh-Hans": "未知"
+    },
+    "web.usage.copy": {
+      "comment": "Usage note about the foreground.",
+      "en-US": "Location keeps running while the screen is on and the page in front; in the background or locked, the iPhone pauses location.",
+      "pt-BR": "A localização continua com a tela ligada e a página na frente; em segundo plano ou com a tela bloqueada, o iPhone pausa a localização.",
+      "zh-Hans": "前台亮屏可持续定位；网页进入后台或锁屏后，iPhone 会暂停定位。"
+    },
+    "web.usage.title": {
+      "comment": "Caption of the usage note.",
+      "en-US": "Requirements",
+      "pt-BR": "Condições de uso",
+      "zh-Hans": "使用条件"
     }
   }
 }
