@@ -66,7 +66,7 @@ these. Verify rotation, backups, retention and privacy disclosures. Do not claim
 | `GET /v1/places?keywords=...&longitude_deg=...&latitude_deg=...&region=...` | POI search; optional WGS84 latitude and longitude must be supplied together |
 | `POST /v1/route-options` | Up to three ordinary driving routes for preview and selection |
 | `POST /v1/routes` | A route, off-route rerouting and periodic route/traffic refresh |
-| `GET /v1/map/cities?keywords=...` | City, district and four province-level municipality download bounds; ordinary provinces and countries are excluded |
+| `GET /v1/map/cities?keywords=...` | City, district and four province-level municipality download bounds; ordinary provinces and countries are excluded. Each result has `scope: "city"` or `"district"`; the app words it in the user's language |
 | `GET /v1/map/tiles/15/{x}/{y}` | One road/building JSON tile; z15 only, integer x/y from 0 to 32767, no query parameters |
 
 Route schemas are in `shared/protocol`; see `fixtures/route-request-v1.json` for a request example.

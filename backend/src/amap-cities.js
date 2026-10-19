@@ -56,7 +56,8 @@ export function transformAmapCities(payload) {
     if (!/^\d{6}$/.test(id) || !name || seen.has(id)) continue;
     const bounds = districtBoundsWgs84(district.polyline);
     if (!bounds) { missingBoundary = true; continue; }
-    cities.push({ id, name, detail: district.level === "district" ? "区县范围" : "全市范围", bounds_wgs84: bounds });
+    // A code, not a phrase: the app words the scope in the rider's language.
+    cities.push({ id, name, scope: district.level === "district" ? "district" : "city", bounds_wgs84: bounds });
     seen.add(id);
   }
   if (!cities.length && missingBoundary) {

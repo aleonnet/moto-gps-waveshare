@@ -296,6 +296,25 @@ UI.
 For where the demo roads come from, how the data is generated and the OSM attribution see the
 [demo fixture notes](shared/demo_fixture/README.en.md).
 
+### Languages (this fork)
+
+The app, the round display and the web tool speak English, Brazilian Portuguese and Simplified
+Chinese.
+
+- **App:** Settings row "Language" on the home screen: System, English, Português (Brasil) or 简体中文.
+  The interface changes at once; "System" follows iOS, including the per-app language in iOS
+  Settings, which the same screen opens. Permission prompts always follow the iOS language.
+- **Round display:** follows the app. The phone sends its language after connecting
+  (`LocaleSelection`, protocol message `0x15`); the display keeps the last one and boots in it.
+- **Web tool:** follows the browser; `?lang=pt-BR`, `en-US` or `zh-Hans` forces one, and the status
+  dialog has a language selector. `?lang=qps-ploc` shows a pseudo-language that lengthens every text
+  to reveal clipping.
+- Road names, instructions and track titles are data from AMap or the phone and are not translated.
+
+Device and web texts live in `shared/i18n/catalog.json` (`python3 scripts/i18n/build_catalog.py`
+regenerates the tables); app texts in `platforms/ios/App/Localizable.xcstrings`.
+`python3 scripts/i18n/check_catalogs.py` fails on any missing or unused translation.
+
 ## Using it
 
 After the first install and configuration, a navigation session goes in this order:

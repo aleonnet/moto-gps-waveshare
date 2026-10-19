@@ -234,6 +234,22 @@ App 提供“演示导航”入口，使用以下公共地点作为固定演示�
 也能检查连接状态切换和页面排版。Web 工具提供同源界面的浏览器预览。
 演示数据的道路来源、生成方式和 OSM 署名见[演示夹具说明](shared/demo_fixture/README.md)。
 
+### 语言（本分支）
+
+App、圆屏与 Web 工具支持英语、巴西葡萄牙语和简体中文。
+
+- **App：** 首页设置区的“语言”一行：跟随系统、English、Português (Brasil) 或简体中文，界面立即切换；
+  “跟随系统”沿用 iOS 语言，包括 iOS 设置中的单独 App 语言（同一页面可直接打开）。权限提示始终跟随 iOS 语言。
+- **圆屏：** 跟随 App。手机连接后发送语言（`LocaleSelection`，协议消息 `0x15`）；圆屏保存最后一次的语言，
+  开机即使用。
+- **Web 工具：** 跟随浏览器；`?lang=pt-BR`、`en-US` 或 `zh-Hans` 可强制指定，运行状态对话框也可选择语言。
+  `?lang=qps-ploc` 显示加长的伪语言，用于检查文字截断。
+- 道路名、导航指令和曲名是高德或手机提供的数据，不翻译。
+
+圆屏和 Web 的文字位于 `shared/i18n/catalog.json`（`python3 scripts/i18n/build_catalog.py` 重新生成表格）；
+App 的文字位于 `platforms/ios/App/Localizable.xcstrings`。`python3 scripts/i18n/check_catalogs.py`
+会在缺少或未使用翻译时失败。
+
 ## 使用流程
 
 完成首次安装和配置后，一次导航按下面的顺序操作：

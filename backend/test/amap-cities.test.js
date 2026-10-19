@@ -31,8 +31,8 @@ test("city results exclude countries/provinces, retain district choices, and spa
     { ...district, level: "city", adcode: "370100", name: "济南市" }, district, district,
   ] });
   assert.deepEqual(result.cities.map((c) => c.id), ["370100", "370102"]);
-  assert.equal(result.cities[0].detail, "全市范围");
-  assert.equal(result.cities[1].detail, "区县范围");
+  assert.equal(result.cities[0].scope, "city");
+  assert.equal(result.cities[1].scope, "district");
   const bounds = districtBoundsWgs84(`${district.polyline}|118.0,37.0;118.1,37.0;118.1,37.1`);
   assert.ok(bounds[2] > 118 && bounds[3] > 37);
   assert.deepEqual(transformAmapCities({ status: "1", districts: [] }), { cities: [] });
@@ -44,7 +44,7 @@ test("province-level municipalities remain searchable while ordinary provinces a
     { ...district, adcode: "370000", level: "province", name: "山东省" },
   ] });
   assert.deepEqual(result.cities.map((c) => c.id), ["110000", "120000", "310000", "500000"]);
-  assert.ok(result.cities.every((c) => c.detail === "全市范围"));
+  assert.ok(result.cities.every((c) => c.scope === "city"));
 });
 
 test("bad boundaries and upstream failure cannot become fabricated city extents", async () => {
