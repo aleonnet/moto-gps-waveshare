@@ -466,7 +466,9 @@ GATT UUID、字节格式与黄金测试数据见[BLE 协议](shared/protocol/ble
 
 ### 显示与流畅度
 
-固件使用 PSRAM 绘图缓冲与直接 DMA，让 LVGL 绘制和 QSPI 传输衔接。
+固件的绘图缓冲在 PSRAM 中，按 12,276 字节一块复制到内部 RAM 再由 DMA 发送（两块排队，复制与传输重叠）。
+在本板上直接从 PSRAM 做 DMA 会出现欠载（`DMA TX underflow`），并使屏幕永久卡死，详见
+[诊断记录](docs/roadmap/2026-10-19-2110-diagnostico-travamento-tela.md)（葡萄牙语）。
 CO5300 的 TE 信号用于帧首同步，地图、插值和渲染任务按 25 ms 的目标节拍协调。
 实际帧率、快速转向时的撕裂感和持续运行功耗，仍以实机测量与观察为准。
 

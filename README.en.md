@@ -562,8 +562,10 @@ GATT UUIDs, byte formats and golden fixtures are in the
 
 ### Display and smoothness
 
-The firmware uses PSRAM draw buffers and direct DMA, so that LVGL drawing and QSPI transfer
-follow on from each other.
+The firmware keeps the draw buffers in PSRAM and sends them in 12,276-byte chunks copied to internal RAM
+(two chunks queued, so the copy overlaps the QSPI transfer). Direct DMA from PSRAM underflowed on this board
+(`DMA TX underflow`) and froze the display for good; see the
+[diagnosis](docs/roadmap/2026-10-19-2110-diagnostico-travamento-tela.md) (Portuguese).
 The CO5300's TE signal is used to synchronise the start of frames, and the map, interpolation and
 rendering tasks are coordinated on a 25 ms target tick.
 The actual frame rate, tearing during fast turns and power draw over a long run are still judged by
