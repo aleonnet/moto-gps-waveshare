@@ -78,10 +78,20 @@ test("a maneuver sits where its step starts; the departure is not a maneuver", (
 test("maneuver names map onto the protocol's closed list", () => {
   for (const [type, expected] of [["Straight", "continue"], ["SlightRight", "slight_right"], ["SharpLeft", "sharp_left"],
     ["TurnAroundLeft", "u_turn_left"], ["StayRight", "slight_right"], ["ExitLeft", "slight_left"],
-    ["MergeRight", "continue"], ["Roundabout", "roundabout"], ["DestinationReachedLeft", "arrive"],
+    ["MergeRight", "continue"], ["Roundabout", "exit"], ["DestinationReachedLeft", "arrive"],
     ["FerryEnter", "unknown"], ["", "unknown"]]) {
     assert.equal(mapGeoapifyManeuver(type), expected, type);
   }
+});
+
+test("a recorded roundabout keeps its exit number and its leaving step", async () => {
+  // Real answer recorded 2026-10-20 (key removed): through Praca Panamericana, Sao Paulo.
+  const value = transformGeoapifyRoute(await load("geoapify-route-saopaulo-roundabout.json"));
+  const roundabout = value.maneuvers.filter((maneuver) => ["roundabout", "exit"].includes(maneuver.type));
+  assert.deepEqual(roundabout.map(({ type, roundabout_exit, road_name }) => [type, roundabout_exit, road_name]), [
+    ["roundabout", 6, "Praça Panamericana"],
+    ["exit", 0, "Avenida Dona Elisa de Moraes Mendes"],
+  ]);
 });
 
 test("route requests ask for a motorcycle, latitude first, in the rider's language", () => {

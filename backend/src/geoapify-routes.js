@@ -23,12 +23,14 @@ const MANEUVER_TYPES = new Map([
   ["TurnAroundRight", "u_turn_right"], ["TurnAroundLeft", "u_turn_left"],
   ["ExitRight", "slight_right"], ["StayRight", "slight_right"],
   ["ExitLeft", "slight_left"], ["StayLeft", "slight_left"],
-  ["Roundabout", "roundabout"],
 ]);
 
-export function mapGeoapifyManeuver(type) {
+// "Roundabout" names both the entry and the exit step; only the entry carries
+// roundabout_exit (measured on a recorded Praca Panamericana route).
+export function mapGeoapifyManeuver(type, roundaboutExit) {
   const value = String(type ?? "");
   if (value.startsWith("DestinationReached")) return "arrive";
+  if (value === "Roundabout") return roundaboutExit === undefined ? "exit" : "roundabout";
   return MANEUVER_TYPES.get(value) ?? "unknown";
 }
 
@@ -91,7 +93,7 @@ export function transformGeoapifyRoute(payload, { generatedAtMs = Date.now() } =
         const roundaboutExit = Math.trunc(Number(instruction.roundabout_exit));
         maneuvers.push({
           id: maneuvers.length + 1,
-          type: mapGeoapifyManeuver(type),
+          type: mapGeoapifyManeuver(type, instruction.roundabout_exit),
           route_offset_m: rounded(routeOffsetM),
           road_name: compactText(Array.isArray(instruction.streets) ? instruction.streets[0] : "", 96),
           instruction: compactText(instruction.text, 256),
