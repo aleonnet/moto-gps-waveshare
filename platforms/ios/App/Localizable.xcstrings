@@ -417,22 +417,6 @@
         }
       }
     },
-    "Choose where the simulation starts" : {
-      "localizations" : {
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escolha onde a simulação começa"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择模拟的起点"
-          }
-        }
-      }
-    },
     "Cities cannot be searched right now. Check the network and try again." : {
       "localizations" : {
         "pt-BR" : {

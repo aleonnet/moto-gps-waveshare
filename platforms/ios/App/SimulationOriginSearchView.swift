@@ -10,6 +10,13 @@ struct SimulationOriginSearchView: View {
     var body: some View {
         NavigationStack {
             List {
+                Button {
+                    model.useCurrentLocationForSimulation()
+                    dismiss()
+                } label: {
+                    Label(L("Current location"), systemImage: "location.fill")
+                }
+                .accessibilityIdentifier("simulation-origin-current")
                 if model.isSearchingSimulationOrigin {
                     HStack(spacing: 12) {
                         ProgressView()

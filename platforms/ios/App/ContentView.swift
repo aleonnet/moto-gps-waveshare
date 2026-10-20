@@ -580,8 +580,8 @@ struct ContentView: View {
         Button { showsSimulationOrigin = true } label: {
             Label {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(model.simulationOrigin?.name ?? L("Choose where the simulation starts"))
-                        .foregroundStyle(model.simulationOrigin == nil ? Color.indigo : Color.primary)
+                    Text(model.simulationOrigin?.name ?? L("Current location"))
+                        .foregroundStyle(Color.primary)
                     if let origin = model.simulationOrigin {
                         Text(placeSubtitle(origin)).font(.subheadline).foregroundStyle(Color.secondary)
                     }
@@ -635,8 +635,7 @@ struct ContentView: View {
             .buttonBorderShape(.roundedRectangle(radius: 16))
             .controlSize(.large)
             .tint(actionTint)
-            .disabled(!model.isNavigationActive && (model.selectedPlace == nil || model.isPlanningRoutePreview ||
-                (model.isSimulationMode && model.simulationOrigin == nil)))
+            .disabled(!model.isNavigationActive && (model.selectedPlace == nil || model.isPlanningRoutePreview))
             .accessibilityIdentifier(model.isNavigationActive ? "end-navigation-action" : "primary-navigation-action")
         }
         .padding(.horizontal, 20)
@@ -807,6 +806,7 @@ struct ContentView: View {
     }
 
     private var deviceDetail: String {
+        if let action = model.device.riderAction { return action }
         switch model.device.connection {
         case .connected:
             return model.deviceReady

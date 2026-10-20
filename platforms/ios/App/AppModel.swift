@@ -117,7 +117,7 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             self.searchLocationStatus = status
             guard self.isPlanningRoutePreview,
-                  !self.isSimulationMode,
+                  !(self.isSimulationMode && self.simulationOrigin != nil),
                   self.routePreviewTask == nil,
                   self.searchLocation.latestPoint == nil
             else { return }
@@ -266,7 +266,6 @@ final class AppModel: ObservableObject {
         if isNavigationActive { return L("End navigation") }
         if isPlanningRoutePreview { return L("Planning the route") }
         if selectedPlace == nil { return L("Choose a destination first") }
-        if isSimulationMode, simulationOrigin == nil { return L("Choose where the simulation starts") }
         if selectedRoutePreview == nil { return L("Plan the route again") }
         return isSimulationMode ? L("Simulate route") : L("Start navigation")
     }
@@ -310,6 +309,15 @@ final class AppModel: ObservableObject {
                 self.isSearchingSimulationOrigin = false
             }
         }
+    }
+
+    /// Simulates from where the iPhone is, which is also the default.
+    func useCurrentLocationForSimulation() {
+        simulationOriginTask?.cancel()
+        simulationOrigin = nil
+        simulationOriginResults = []
+        isSearchingSimulationOrigin = false
+        planRoutePreview()
     }
 
     func selectSimulationOrigin(_ place: PlaceSearchResult) {
@@ -369,6 +377,9 @@ final class AppModel: ObservableObject {
         selectedPlace = place
         destinationQuery = place.name
         placeResults = []
+        // Every new destination starts in real navigation.
+        isSimulationMode = false
+        simulationOrigin = nil
         remember(place)
         planRoutePreview()
     }
@@ -548,9 +559,9 @@ final class AppModel: ObservableObject {
         navigationFailure = nil
         isPlanningRoutePreview = true
 
-        if isSimulationMode {
-            // A simulation plans from the chosen start, never from the GPS.
-            if simulationOrigin == nil { isPlanningRoutePreview = false }
+        if isSimulationMode, simulationOrigin != nil {
+            // A chosen simulation start replaces the GPS; without one the
+            // simulation starts from the current location like a real ride.
             beginRoutePreviewRequestIfPossible()
             return
         }
@@ -596,7 +607,7 @@ final class AppModel: ObservableObject {
         guard routePreviewTask == nil,
               isPlanningRoutePreview,
               let place = selectedPlace,
-              let origin = isSimulationMode ? simulationOrigin?.location : searchLocation.latestPoint
+              let origin = (isSimulationMode ? simulationOrigin?.location : nil) ?? searchLocation.latestPoint
         else { return }
 
         let placeIdentity = Self.placeIdentity(place)

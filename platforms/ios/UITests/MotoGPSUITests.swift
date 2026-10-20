@@ -329,8 +329,11 @@ final class MotoGPSUITests: XCTestCase {
 
         let start = app.buttons["primary-navigation-action"]
         XCTAssertTrue(start.waitForExistence(timeout: 3))
-        XCTAssertFalse(start.isEnabled, "no simulation without a chosen start")
+        let fromHere = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: start)
+        XCTAssertEqual(XCTWaiter.wait(for: [fromHere], timeout: 15), .completed,
+                       "the simulation starts from the current location without typing")
         app.buttons["simulation-origin-button"].tap()
+        XCTAssertTrue(app.buttons["simulation-origin-current"].waitForExistence(timeout: 3))
         let originField = app.searchFields.firstMatch
         XCTAssertTrue(originField.waitForExistence(timeout: 3))
         originField.tap()

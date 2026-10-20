@@ -15,6 +15,17 @@ struct BLEDeviceSnapshot: Equatable {
     var connection: Connection = .idle
     var negotiatedProtocol = "--"
     var lastCommandID: UInt16?
+    /// The last link loss was the round display forgetting this iPhone's
+    /// pairing. It survives the reconnect attempts; the next loss replaces it.
+    var lostPairing = false
+
+    /// What only the rider can do while the round display is not connected.
+    var riderAction: String? {
+        if case .connected = connection { return nil }
+        return lostPairing
+            ? L("The round display no longer knows this iPhone. Forget MOTO GPS in Settings › Bluetooth; it then connects again.")
+            : nil
+    }
 }
 
 enum BLECommandDisposition: UInt8 {
@@ -1313,20 +1324,20 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         cancelTransportTeardown()
         peripheral.delegate = nil
         self.peripheral = nil
-        snapshot.connection = shouldMaintainConnection
-            ? .failed(message: Self.connectionFailureMessage(error, fallback: "could not connect to the device"))
-            : .idle
+        if shouldMaintainConnection {
+            Self.recordLinkLoss(error, fallback: "could not connect to the device", in: &snapshot)
+        } else {
+            snapshot.connection = .idle
+        }
         scheduleReconnect()
     }
 
     /// A round display reflashed or reset forgets this iPhone's pairing keys,
     /// and only the rider can delete the stale pairing on the iPhone. Retries
     /// continue, so the link comes back by itself once it is forgotten.
-    static func connectionFailureMessage(_ error: Error?, fallback: String) -> String {
-        if (error as? CBError)?.code == .peerRemovedPairingInformation {
-            return L("The round display no longer knows this iPhone. Forget MOTO GPS in Settings › Bluetooth; it then connects again.")
-        }
-        return error?.localizedDescription ?? fallback
+    static func recordLinkLoss(_ error: Error?, fallback: String, in snapshot: inout BLEDeviceSnapshot) {
+        snapshot.lostPairing = (error as? CBError)?.code == .peerRemovedPairingInformation
+        snapshot.connection = .failed(message: error?.localizedDescription ?? fallback)
     }
 
     func centralManager(
@@ -1341,9 +1352,11 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         cancelTransportTeardown()
         peripheral.delegate = nil
         self.peripheral = nil
-        snapshot.connection = shouldMaintainConnection
-            ? .failed(message: Self.connectionFailureMessage(error, fallback: "device disconnected; waiting to reconnect"))
-            : .idle
+        if shouldMaintainConnection {
+            Self.recordLinkLoss(error, fallback: "device disconnected; waiting to reconnect", in: &snapshot)
+        } else {
+            snapshot.connection = .idle
+        }
         scheduleReconnect()
     }
 }
