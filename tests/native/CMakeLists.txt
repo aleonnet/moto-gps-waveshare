@@ -149,3 +149,10 @@ if(MOTO_NODE)
   add_test(NAME web_i18n_tests
     COMMAND "${MOTO_NODE}" --test "${CMAKE_CURRENT_LIST_DIR}/../web/i18n.test.mjs")
 endif()
+
+# Every catalog complete, generated tables current, no key missing or unused.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME i18n_catalog_check
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../../scripts/i18n/check_catalogs.py")
+endif()

@@ -31,6 +31,17 @@ constexpr char kTag[] = "board_waveshare";
 // QSPI DMA. A 32-row internal-buffer experiment exhausted BLE startup memory.
 constexpr std::uint16_t kDrawBufferHeight = 320;
 constexpr bool kDrawBuffersUsePsram = true;
+// The panel DMA reads small internal-RAM copies of the PSRAM draw buffer, never
+// PSRAM itself: direct PSRAM DMA underflowed on this board and esp_lcd never
+// recovers ("DMA TX underflow detected", measured 2026-10-19; same failure in
+// espressif/esp-idf#18764). Two queued chunks let esp_lcd copy one while the
+// other is sent. The SPI bus rounds max_transfer_sz up to whole 4,092-byte DMA
+// descriptors (spicommon_dma_desc_alloc), so ask for exactly three: 12,276
+// bytes per chunk, each copy allocated on its own (the largest internal DMA
+// block measured with BLE connected was 17-20 KiB). Both copies stay allocated
+// until the next flush recycles them.
+constexpr std::size_t kPanelChunkBytes = 3 * 4'092;
+constexpr int kPanelQueueDepth = 2;
 constexpr std::size_t kLvglExtraPoolBytes = 2U * 1024U * 1024U;
 static_assert(kLvglExtraPoolBytes <= LV_MEM_POOL_EXPAND_SIZE,
               "LVGL TLSF must support the board's extra PSRAM pool");
@@ -171,6 +182,13 @@ void display_timing_event(lv_event_t* event) {
                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) / 1024U),
                static_cast<unsigned long>(heap_caps_get_minimum_free_size(
                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) / 1024U));
+      // Panel transfers without psram_dma_direct copy each chunk into an
+      // internal DMA block of this size class.
+      constexpr std::uint32_t kInternalDma = MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA;
+      ESP_LOGI(kTag, "internal DMA heap: free %lu KiB, largest %lu KiB, minimum %lu KiB",
+               static_cast<unsigned long>(heap_caps_get_free_size(kInternalDma) / 1024U),
+               static_cast<unsigned long>(heap_caps_get_largest_free_block(kInternalDma) / 1024U),
+               static_cast<unsigned long>(heap_caps_get_minimum_free_size(kInternalDma) / 1024U));
       timing = {};
       timing.window_start_us = now_us;
     }
@@ -239,15 +257,13 @@ esp_err_t initialize_hidden_panel(std::size_t maximum_transfer_size,
   io_config.dc_gpio_num = -1;
   io_config.spi_mode = 0;
   io_config.pclk_hz = 40 * 1'000 * 1'000;
-  io_config.trans_queue_depth = CONFIG_BSP_LCD_TRANS_QUEUE_DEPTH;
+  io_config.trans_queue_depth = kPanelQueueDepth;
   io_config.lcd_cmd_bits = 32;
   io_config.lcd_param_bits = 8;
   io_config.flags.quad_mode = true;
-  // ESP32-S3 GPSPI can read an aligned PSRAM color buffer directly through
-  // GDMA. Without this flag esp_lcd allocates and copies into a same-sized
-  // internal bounce buffer for every flush, which caused the old large-buffer
-  // configuration to fail once NimBLE was active.
-  io_config.flags.psram_dma_direct = true;
+  // spi_master copies each chunk (max_transfer_sz) of a PSRAM color buffer
+  // into an internal DMA buffer; see kPanelChunkBytes.
+  io_config.flags.psram_dma_direct = false;
   esp_lcd_panel_io_handle_t new_panel_io = nullptr;
   ESP_RETURN_ON_ERROR(
       esp_lcd_new_panel_io_spi(
@@ -293,12 +309,6 @@ esp_err_t write_pmic_register(std::uint8_t reg, std::uint8_t value) {
   const std::uint8_t command[2] = {reg, value};
   return i2c_master_transmit(pmic, command, sizeof(command), 100);
 }
-
-// Keep one transfer in flight. Double buffering overlaps CPU drawing with the
-// active transfer; a deeper esp_lcd transaction queue does not add another
-// LVGL buffer and only increases memory/latency under continuous animation.
-static_assert(CONFIG_BSP_LCD_TRANS_QUEUE_DEPTH == 1,
-              "CO5300 transfers must be serialized to bound DMA memory");
 
 void round_draw_area(lv_area_t* area, void*) {
   // CO5300 QSPI writes must begin/end on two-pixel boundaries. Keeping the
@@ -827,8 +837,8 @@ extern "C" esp_err_t board_port_init(void) {
 
   // Keep the official BSP's touch driver and pin map plus the supplier's
   // CO5300 command values. Panel creation itself uses the public esp_lcd APIs
-  // so DISPON can be deferred. Explicit PSRAM draw buffers feed direct DMA
-  // without allocating a bounce buffer for each transaction.
+  // so DISPON can be deferred. Explicit PSRAM draw buffers are sent in small
+  // internal-RAM chunks (kPanelChunkBytes).
   const esp_lv_adapter_config_t adapter_config =
       ESP_LV_ADAPTER_DEFAULT_CONFIG();
   ESP_RETURN_ON_ERROR(esp_lv_adapter_init(&adapter_config), kTag,
@@ -855,8 +865,7 @@ extern "C" esp_err_t board_port_init(void) {
 
   esp_lcd_panel_io_handle_t panel_io = nullptr;
   ESP_RETURN_ON_ERROR(
-      initialize_hidden_panel(MOTO_DISPLAY_WIDTH * kDrawBufferHeight *
-                                  MOTO_DISPLAY_BITS_PER_PIXEL / 8,
+      initialize_hidden_panel(kPanelChunkBytes,
                               &panel, &panel_io),
       kTag, "hidden Waveshare CO5300 initialization failed");
 
@@ -925,11 +934,11 @@ extern "C" esp_err_t board_port_init(void) {
   ESP_LOGI(
       kTag,
       "CO5300 + CST9217 ready at %dx%d RGB565 (dual %s %u-row buffers, "
-      "direct DMA, QSPI queue depth %d)",
+      "%u-byte internal DMA chunks, QSPI queue depth %d)",
       MOTO_DISPLAY_WIDTH, MOTO_DISPLAY_HEIGHT,
       kDrawBuffersUsePsram ? "PSRAM" : "internal SRAM",
       static_cast<unsigned>(kDrawBufferHeight),
-      CONFIG_BSP_LCD_TRANS_QUEUE_DEPTH);
+      static_cast<unsigned>(kPanelChunkBytes), kPanelQueueDepth);
   return ESP_OK;
 }
 

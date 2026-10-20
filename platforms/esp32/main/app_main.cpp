@@ -47,7 +47,9 @@ void store_language(const char* language, void*) {
   if (result != ESP_OK) {
     ESP_LOGW(kTag, "could not store display language %s: %s", language,
              esp_err_to_name(result));
+    return;
   }
+  ESP_LOGI(kTag, "display language %s stored", language);
 }
 
 moto::ble::AckStatus receive_phone_message(

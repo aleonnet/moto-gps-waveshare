@@ -710,6 +710,30 @@ void test_language_switch_redraws_every_page_in_place() {
   moto_nav_ui_set_music_page_enabled(0);
 }
 
+// Bench report 2026-10-19: on READY TO RIDE the kicker and title switched to
+// Portuguese while the line under them stayed in English.
+void test_language_switch_on_the_ready_screen() {
+  moto_ui_state_t idle = base_state();
+  idle.has_destination = 0;
+  idle.route_point_count = 0;
+  idle.page = MOTO_UI_PAGE_NAVIGATION;
+  moto_nav_ui_set_reduce_motion(1);
+  moto_nav_ui_set_page(MOTO_UI_PAGE_NAVIGATION);
+  moto_nav_ui_set_state(&idle);
+  moto_nav_ui_set_language("en-US");
+  moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_ONLINE);
+  pump(260);
+  CHECK(screen_shows("READY TO RIDE"));
+  CHECK(screen_shows("Choose a destination on the phone"));
+  moto_nav_ui_set_language("pt-BR");
+  CHECK(screen_shows("MOTO GPS / PRONTO"));
+  CHECK(screen_shows("PRONTO PARA RODAR"));
+  CHECK(screen_shows("Escolha o destino no celular"));
+  CHECK(!screen_shows("Choose a destination on the phone"));
+  check_switch_in_place("ready screen", [&] { moto_nav_ui_set_state(&idle); });
+  moto_nav_ui_set_language("en-US");
+}
+
 // Production shutdown: PWR held while the full UI is live. A language that
 // arrives afterwards must not touch the deleted widgets.
 void test_language_after_power_off_from_the_full_ui() {
@@ -764,6 +788,7 @@ int main(int argc, char **argv) {
   test_every_language_renders_every_label();
   test_language_switch_updates_visible_text_in_place();
   test_language_switch_redraws_every_page_in_place();
+  test_language_switch_on_the_ready_screen();
   test_language_before_the_ui_is_used_at_creation();
   test_language_after_power_off_from_the_full_ui();
 

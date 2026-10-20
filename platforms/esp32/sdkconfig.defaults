@@ -11,10 +11,9 @@ CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
 CONFIG_SPIRAM_RODATA=y
 
-# The board port supplies its own PSRAM draw buffers and explicitly opts into
-# direct PSRAM DMA. Keep a single outstanding QSPI transaction so old display
-# frames cannot accumulate; the original BSP's default bounce buffers are not
-# used by this board port.
+# Used only by the Waveshare BSP's own panel helper, which this board port does
+# not call: the port creates the panel itself and sets its queue depth and chunk
+# size in board_port_waveshare_1_75c.cpp (kPanelQueueDepth, kPanelChunkBytes).
 CONFIG_BSP_LCD_TRANS_QUEUE_DEPTH=1
 CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB=y
 CONFIG_ESP32S3_DATA_CACHE_64KB=y
