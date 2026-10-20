@@ -43,19 +43,37 @@
   const browserLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
   const storedChoice = readChoice();
   const query = new URLSearchParams(window.location.search).get("lang");
-  const language = negotiate(query, storedChoice, browserLanguages);
   const browserLanguage = negotiate(null, null, browserLanguages);
-  // The pseudo-locale only changes text; numbers keep English conventions.
-  const formatLocale = language === PSEUDO ? FALLBACK : language;
-  const pluralRules = new Intl.PluralRules(formatLocale);
+  let choice = supportedLanguage(storedChoice) ? storedChoice : "system";
+  let language;
+  let formatLocale;
+  let pluralRules;
+
+  function use(tag) {
+    language = tag;
+    // The pseudo-locale only changes text; numbers keep English conventions.
+    formatLocale = language === PSEUDO ? FALLBACK : language;
+    pluralRules = new Intl.PluralRules(formatLocale);
+  }
+
+  use(negotiate(query, storedChoice, browserLanguages));
 
   function lookup(key) {
     return messages[language]?.[key] ?? messages[FALLBACK]?.[key] ?? key;
   }
 
+  /**
+   * Values are rendered in the language in use: numbers are formatted here and
+   * a value { key, values } is itself a message.
+   */
   function t(key, values = {}) {
-    return lookup(key).replace(/\{([a-z_]+)\}/g, (match, name) =>
-      Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
+    return lookup(key).replace(/\{([a-z_]+)\}/g, (match, name) => {
+      if (!Object.prototype.hasOwnProperty.call(values, name)) return match;
+      const value = values[name];
+      if (typeof value === "number") return number(value);
+      if (value?.key) return t(value.key, value.values);
+      return String(value);
+    });
   }
 
   function number(value, options) {
@@ -105,14 +123,50 @@
     return name.charAt(0).toLocaleUpperCase(tag) + name.slice(1);
   }
 
+  function render(element) {
+    const values = element.dataset.i18nValues ? JSON.parse(element.dataset.i18nValues) : {};
+    element.textContent = element.dataset.i18nPlural === undefined
+      ? t(element.dataset.i18n, values)
+      : plural(element.dataset.i18n, Number(element.dataset.i18nPlural), values);
+  }
+
   /**
-   * Fills static HTML: data-i18n sets the text, data-i18n-attr lists
+   * Shows a message and keeps its key and values on the element, so apply()
+   * renders it again in a new language. A falsy key clears the element.
+   */
+  function show(element, key, values) {
+    delete element.dataset.i18nPlural;
+    if (!key) {
+      showVerbatim(element, "");
+      return;
+    }
+    element.dataset.i18n = key;
+    if (values) element.dataset.i18nValues = JSON.stringify(values);
+    else delete element.dataset.i18nValues;
+    render(element);
+  }
+
+  function showPlural(element, key, count) {
+    show(element, key);
+    element.dataset.i18nPlural = String(count);
+    render(element);
+  }
+
+  /** Data such as a place name, which no language change touches. */
+  function showVerbatim(element, text) {
+    delete element.dataset.i18n;
+    delete element.dataset.i18nValues;
+    delete element.dataset.i18nPlural;
+    element.textContent = text;
+  }
+
+  /**
+   * Renders every message in the page: data-i18n (with data-i18n-values and
+   * data-i18n-plural from show()) sets the text, data-i18n-attr lists
    * "attribute:key" pairs separated by ";".
    */
   function apply(root = document) {
-    for (const element of root.querySelectorAll("[data-i18n]")) {
-      element.textContent = t(element.dataset.i18n);
-    }
+    for (const element of root.querySelectorAll("[data-i18n]")) render(element);
     for (const element of root.querySelectorAll("[data-i18n-attr]")) {
       for (const pair of element.dataset.i18nAttr.split(";")) {
         const [attribute, key] = pair.split(":");
@@ -126,34 +180,42 @@
     }
   }
 
-  /** "system" follows the browser; reloads so every text uses one language. */
-  function setChoice(choice) {
+  /**
+   * "system" follows the browser. Applies at once without reloading: the page
+   * is rendered again and "moto-languagechange" lets the app redraw what it
+   * formats itself (numbers, the round display).
+   */
+  function setChoice(next) {
+    choice = next === "system" || !supportedLanguage(next) ? "system" : next;
     try {
       if (choice === "system") window.localStorage.removeItem(STORAGE_KEY);
       else window.localStorage.setItem(STORAGE_KEY, choice);
     } catch {
-      return;
+      // Not saved (private mode); the choice still applies to this page.
     }
-    window.location.reload();
+    use(negotiate(null, choice === "system" ? null : choice, browserLanguages));
+    apply();
+    window.dispatchEvent(new CustomEvent("moto-languagechange", { detail: { language } }));
   }
 
   window.MotoI18n = Object.freeze({
-    language,
+    get language() { return language; },
     browserLanguage,
-    choice: supportedLanguage(storedChoice) ? storedChoice : "system",
+    get choice() { return choice; },
     supported: SUPPORTED,
     /** For the round display (BCP 47) and speech synthesis. */
-    deviceLanguage: formatLocale,
-    speechLanguage: formatLocale === "zh-Hans" ? "zh-CN" : formatLocale,
+    get deviceLanguage() { return formatLocale; },
+    get speechLanguage() { return formatLocale === "zh-Hans" ? "zh-CN" : formatLocale; },
     t,
+    show,
+    showPlural,
+    showVerbatim,
     plural,
-    number,
     distance,
     duration,
     time,
     languageName,
     apply,
     setChoice,
-    negotiate,
   });
 })();

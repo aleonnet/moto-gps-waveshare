@@ -2,7 +2,7 @@
   "use strict";
 
   const i18n = window.MotoI18n;
-  const { t } = i18n;
+  const { t, show, showVerbatim } = i18n;
   const NAV_STATE = ["web.state.idle", "web.state.acquiring", "web.state.planning",
     "web.state.navigating", "web.state.rerouting", "web.state.arrived"];
   const TRAFFIC_LABEL = ["web.traffic.unknown", "web.traffic.free_flow", "web.traffic.slow",
@@ -107,7 +107,7 @@
     remainingDistance: document.querySelector("#remaining-distance"),
     arrivalTime: document.querySelector("#arrival-time"),
     rideConnection: document.querySelector("#ride-connection"),
-    wakeState: document.querySelector("#wake-state"),
+    wakeState: document.querySelector("#wake-state > span"),
     locationAccuracy: document.querySelector("#location-accuracy"),
     statusDialog: document.querySelector("#status-dialog"),
     dialogBackend: document.querySelector("#dialog-backend"),
@@ -117,7 +117,6 @@
     toast: document.querySelector("#toast"),
     canvas: document.querySelector("#canvas"),
     languageSelect: document.querySelector("#language-select"),
-    languageNote: document.querySelector("#language-note"),
     credits: document.querySelector("#credits"),
   };
 
@@ -158,37 +157,38 @@
     context.restore();
   }
 
-  function showToast(message, duration = 2600) {
+  function showToast(key, duration = 2600) {
     window.clearTimeout(toastTimer);
-    elements.toast.textContent = message;
+    show(elements.toast, key);
     elements.toast.hidden = false;
     toastTimer = window.setTimeout(() => {
       elements.toast.hidden = true;
     }, duration);
   }
 
-  function setFeedback(message, tone = "info") {
+  // Messages are shown with i18n.show(), which keeps the key and values on
+  // the element so a language change renders them again in place.
+  function setFeedback(key, tone = "info") {
     elements.searchFeedback.dataset.tone = tone;
-    elements.searchFeedback.textContent = message;
+    show(elements.searchFeedback, key);
   }
 
-  function setRouteStatus(message, tone = "info") {
+  function setRouteStatus(key, tone = "info") {
     elements.routeStatus.dataset.tone = tone;
-    elements.routeStatus.textContent = message;
+    show(elements.routeStatus, key);
   }
 
-  function setRideAlert(message) {
-    elements.rideAlert.textContent = message;
-    elements.rideAlert.hidden = !message;
+  function setRideAlert(key) {
+    show(elements.rideAlert, key);
+    elements.rideAlert.hidden = !key;
   }
 
   function setWakeState(key) {
-    const dot = document.createElement("i");
-    elements.wakeState.replaceChildren(dot, ` ${t(key)}`);
+    show(elements.wakeState, key);
   }
 
-  function networkText() {
-    return t(navigator.onLine ? "web.network.online" : "web.network.offline");
+  function networkKey() {
+    return navigator.onLine ? "web.network.online" : "web.network.offline";
   }
 
   /** Fills a message whose {name} parameters are DOM nodes (links). */
@@ -198,6 +198,12 @@
       index % 2 === 1 && nodes[part] ? nodes[part] : part));
   }
 
+  /** Data when present, otherwise a message such as "Unnamed place". */
+  function showData(element, text, fallbackKey) {
+    if (text) showVerbatim(element, text);
+    else show(element, fallbackKey);
+  }
+
   function link(href, text) {
     const anchor = document.createElement("a");
     anchor.href = href;
@@ -205,7 +211,7 @@
     return anchor;
   }
 
-  function setupLanguageSettings() {
+  function renderLanguageSettings() {
     const options = ["system", ...i18n.supported].map((value) => {
       const option = document.createElement("option");
       option.value = value;
@@ -216,9 +222,6 @@
       return option;
     });
     elements.languageSelect.replaceChildren(...options);
-    elements.languageSelect.addEventListener("change", () => {
-      if (!state.navigating) i18n.setChoice(elements.languageSelect.value);
-    });
     const repository = "https://github.com/mx3353672833-debug/moto-gps-waveshare";
     renderTemplate(elements.credits, "web.status.author", {
       author: link(repository, "Maler X"),
@@ -236,40 +239,40 @@
     if (ring && view === "navigation") elements.rideInstrument.append(ring);
     if (ring && view === "route") elements.previewInstrument.append(ring);
     window.scrollTo({ top: 0, behavior: "instant" });
-    // A language change reloads the page, so it waits until the ride ends.
-    elements.languageSelect.disabled = state.navigating;
-    elements.languageNote.hidden = !state.navigating;
   }
 
   function updateSystemState() {
-    let label = t("web.system.ready");
-    let detail = t("web.system.ready_detail");
+    let label = "web.system.ready";
+    let detail = "web.system.ready_detail";
     let tone = "ready";
 
     if (!state.backendReady) {
-      label = t("web.system.no_service");
-      detail = t(["fixture", "disabled"].includes(state.backendProvider)
-        ? "web.system.needs_key" : "web.system.route_api_down");
+      label = "web.system.no_service";
+      detail = ["fixture", "disabled"].includes(state.backendProvider)
+        ? "web.system.needs_key" : "web.system.route_api_down";
       tone = "error";
     } else if (!state.runtimeReady) {
-      label = t("web.system.loading_screen");
-      detail = t("web.system.loading_screen_detail");
+      label = "web.system.loading_screen";
+      detail = "web.system.loading_screen_detail";
       tone = "loading";
     } else if (!state.currentPosition) {
-      label = t(state.locationPending ? "web.system.locating" : "web.system.waiting_location");
-      detail = t("web.system.enable_location");
+      label = state.locationPending ? "web.system.locating" : "web.system.waiting_location";
+      detail = "web.system.enable_location";
       tone = "loading";
     }
 
     elements.systemState.dataset.tone = tone;
-    elements.systemStateLabel.textContent = label;
-    elements.systemStateDetail.textContent = detail;
-    elements.dialogBackend.textContent = t(state.backendReady ? "web.status.amap_connected" : "web.status.amap_unusable");
-    elements.dialogRuntime.textContent = t(state.runtimeReady ? "web.status.lvgl_running" : "web.status.loading");
-    elements.dialogLocation.textContent = state.currentPosition
-      ? t("web.status.located", { meters: i18n.number(Math.round(state.currentPosition.coords.accuracy)) })
-      : t("web.status.not_allowed");
-    elements.dialogNetwork.textContent = networkText();
+    show(elements.systemStateLabel, label);
+    show(elements.systemStateDetail, detail);
+    show(elements.dialogBackend, state.backendReady ? "web.status.amap_connected" : "web.status.amap_unusable");
+    show(elements.dialogRuntime, state.runtimeReady ? "web.status.lvgl_running" : "web.status.loading");
+    if (state.currentPosition) {
+      show(elements.dialogLocation, "web.status.located",
+        { meters: Math.round(state.currentPosition.coords.accuracy) });
+    } else {
+      show(elements.dialogLocation, "web.status.not_allowed");
+    }
+    show(elements.dialogNetwork, networkKey());
 
     const canSearch = state.backendReady && state.runtimeReady && Boolean(state.currentPosition);
     elements.destinationQuery.disabled = !canSearch;
@@ -311,12 +314,12 @@
       state.backendProvider = String(health.provider ?? "unknown");
       state.backendReady = health.ready_for_live_navigation === true;
       if (!state.backendReady) {
-        setFeedback(t("web.backend.needs_key"), "error");
+        setFeedback("web.backend.needs_key", "error");
       }
     } catch {
       state.backendProvider = "offline";
       state.backendReady = false;
-      setFeedback(t("web.backend.offline"), "error");
+      setFeedback("web.backend.offline", "error");
     }
     updateSystemState();
   }
@@ -334,12 +337,12 @@
     state.locationPending = false;
     const accuracy = Math.round(position.coords.accuracy);
     elements.locationCard.classList.add("is-ready");
-    elements.locationTitle.textContent = t(accuracy <= 25 ? "web.location.locked" : "web.location.low_accuracy");
-    elements.locationCopy.textContent = t(accuracy > 50 ? "web.location.accuracy_wait" : "web.location.accuracy_live",
-      { meters: i18n.number(accuracy) });
-    elements.locationButton.textContent = t("web.location.again");
-    elements.locationAccuracy.textContent = `GPS ${i18n.distance(accuracy)}`;
-    elements.dialogLocation.textContent = t("web.status.located", { meters: i18n.number(accuracy) });
+    show(elements.locationTitle, accuracy <= 25 ? "web.location.locked" : "web.location.low_accuracy");
+    show(elements.locationCopy, accuracy > 50 ? "web.location.accuracy_wait" : "web.location.accuracy_live",
+      { meters: accuracy });
+    show(elements.locationButton, "web.location.again");
+    renderLocationAccuracy();
+    show(elements.dialogLocation, "web.status.located", { meters: accuracy });
 
     if (state.runtimeReady) {
       const coords = position.coords;
@@ -355,20 +358,26 @@
     updateSystemState();
   }
 
-  function locationErrorMessage(error) {
-    if (error?.code === 1) return t("web.location.denied");
-    if (error?.code === 2) return t("web.location.unavailable");
-    if (error?.code === 3) return t("web.location.timeout");
-    return t("web.location.failed");
+  function renderLocationAccuracy() {
+    if (!state.currentPosition) return;
+    const accuracy = Math.round(state.currentPosition.coords.accuracy);
+    showVerbatim(elements.locationAccuracy, `GPS ${i18n.distance(accuracy)}`);
+  }
+
+  function locationErrorKey(error) {
+    if (error?.code === 1) return "web.location.denied";
+    if (error?.code === 2) return "web.location.unavailable";
+    if (error?.code === 3) return "web.location.timeout";
+    return "web.location.failed";
   }
 
   function onLocationError(error) {
     state.locationPending = false;
     elements.locationCard.classList.remove("is-ready");
-    elements.locationTitle.textContent = t("web.location.failed_title");
-    elements.locationCopy.textContent = locationErrorMessage(error);
-    elements.locationButton.textContent = t("web.location.retry");
-    setFeedback(locationErrorMessage(error), "error");
+    show(elements.locationTitle, "web.location.failed_title");
+    show(elements.locationCopy, locationErrorKey(error));
+    show(elements.locationButton, "web.location.retry");
+    setFeedback(locationErrorKey(error), "error");
     updateSystemState();
   }
 
@@ -394,26 +403,26 @@
         timestamp: Date.now(),
       };
       feedPosition(position);
-      setFeedback(t("web.location.test_ready"), "info");
+      setFeedback("web.location.test_ready", "info");
       elements.destinationQuery.focus({ preventScroll: true });
       return;
     }
     if (!window.isSecureContext || !navigator.geolocation) {
       onLocationError({ code: 0 });
-      elements.locationCopy.textContent = t("web.location.needs_https");
+      show(elements.locationCopy, "web.location.needs_https");
       return;
     }
     state.locationPending = true;
-    elements.locationTitle.textContent = t("web.location.locking");
-    elements.locationCopy.textContent = t("web.location.allow_precise");
-    elements.locationButton.textContent = t("web.location.locating_button");
+    show(elements.locationTitle, "web.location.locking");
+    show(elements.locationCopy, "web.location.allow_precise");
+    show(elements.locationButton, "web.location.locating_button");
     updateSystemState();
     navigator.geolocation.getCurrentPosition(
       (position) => {
         feedPosition(position);
         startPositionWatch();
         if (state.backendReady && state.runtimeReady) {
-          setFeedback(t("web.location.ready"), "info");
+          setFeedback("web.location.ready", "info");
           elements.destinationQuery.focus({ preventScroll: true });
         }
       },
@@ -435,9 +444,9 @@
       const copy = document.createElement("span");
       copy.className = "result-copy";
       const name = document.createElement("b");
-      name.textContent = place.name || t("web.place.unnamed");
+      showData(name, place.name, "web.place.unnamed");
       const address = document.createElement("span");
-      address.textContent = [place.display_area, place.address].filter(Boolean).join(" · ") || t("web.place.no_address");
+      showData(address, [place.display_area, place.address].filter(Boolean).join(" · "), "web.place.no_address");
       const arrow = document.createElement("span");
       arrow.className = "result-arrow";
       arrow.textContent = "›";
@@ -455,29 +464,33 @@
     if (query.length < 2) {
       if (state.searchController) state.searchController.abort();
       elements.placeResults.replaceChildren();
-      setFeedback(t(query.length ? "web.search.min_chars" : "web.search.prompt"), "info");
+      setFeedback(query.length ? "web.search.min_chars" : "web.search.prompt", "info");
       return;
     }
     if (!state.backendReady) {
-      setFeedback(t("web.search.no_service"), "error");
+      setFeedback("web.search.no_service", "error");
       return;
     }
 
     if (state.searchController) state.searchController.abort();
     state.searchController = new AbortController();
-    setFeedback(t("web.search.searching"), "loading");
+    setFeedback("web.search.searching", "loading");
     try {
       const url = new URL("v1/places", API_BASE);
       url.searchParams.set("keywords", query);
       const result = await fetchJson(url, { signal: state.searchController.signal });
-      renderPlaces(Array.isArray(result.places) ? result.places : []);
-      setFeedback(result.places?.length
-        ? i18n.plural("web.search.found", result.places.length)
-        : t("web.search.none"), "info");
+      const places = Array.isArray(result.places) ? result.places : [];
+      renderPlaces(places);
+      if (places.length) {
+        elements.searchFeedback.dataset.tone = "info";
+        i18n.showPlural(elements.searchFeedback, "web.search.found", places.length);
+      } else {
+        setFeedback("web.search.none", "info");
+      }
     } catch (error) {
       if (error?.name === "AbortError") return;
       elements.placeResults.replaceChildren();
-      setFeedback(t(error?.code === "SERVER_MISCONFIGURED" ? "web.search.no_key" : "web.search.failed"), "error");
+      setFeedback(error?.code === "SERVER_MISCONFIGURED" ? "web.search.no_key" : "web.search.failed", "error");
     }
   }
 
@@ -547,28 +560,32 @@
     state.runtime.routeCommit(Date.now());
   }
 
-  function trafficLabel(route) {
+  function trafficKey(route) {
     let severity = 0;
     for (const segment of route?.traffic ?? []) {
       severity = Math.max(severity, TRAFFIC[segment.level] ?? 0);
     }
-    return t(TRAFFIC_LABEL[severity]);
+    return TRAFFIC_LABEL[severity];
+  }
+
+  function renderRouteNumbers(route) {
+    elements.routeDuration.textContent = i18n.duration(route.total_duration_s);
+    elements.routeDistance.textContent = i18n.distance(route.total_distance_m);
   }
 
   function updateRouteSummary(route) {
-    elements.routeDuration.textContent = i18n.duration(route.total_duration_s);
-    elements.routeDistance.textContent = i18n.distance(route.total_distance_m);
-    elements.routeTraffic.textContent = trafficLabel(route);
+    renderRouteNumbers(route);
+    show(elements.routeTraffic, trafficKey(route));
   }
 
   async function handleRouteRequest(command) {
     if (!state.destination || !state.runtime) return;
     state.activeRouteRequestId = Number(command.requestId);
     if (command.isReroute) {
-      if (state.navigating) setRideAlert(t("web.route.off_route"));
-      setRouteStatus(t("web.route.rerouting_status"));
+      if (state.navigating) setRideAlert("web.route.off_route");
+      setRouteStatus("web.route.rerouting_status");
     } else {
-      setRouteStatus(t("web.route.planning_traffic"));
+      setRouteStatus("web.route.planning_traffic");
     }
 
     try {
@@ -586,18 +603,17 @@
       feedRouteToRuntime(command.requestId, envelope.route);
       updateRouteSummary(envelope.route);
       elements.startNavigation.disabled = false;
-      setRouteStatus(t(command.isReroute ? "web.route.replanned" : "web.route.generated"), "info");
+      setRouteStatus(command.isReroute ? "web.route.replanned" : "web.route.generated", "info");
       if (state.navigating) {
-        setRideAlert("");
-        showToast(t(command.isReroute ? "web.route.switched" : "web.route.updated"));
+        setRideAlert(null);
+        showToast(command.isReroute ? "web.route.switched" : "web.route.updated");
       }
     } catch (error) {
       if (state.activeRouteRequestId !== Number(command.requestId)) return;
       state.activeRouteRequestId = null;
       state.runtime.routeFailed(command.requestId, error?.retryable === false ? 0 : 1, Date.now());
-      const message = t(error?.code === "SERVER_MISCONFIGURED" ? "web.route.no_key" : "web.route.failed");
-      setRouteStatus(message, "error");
-      if (state.navigating) setRideAlert(t("web.route.reroute_failed"));
+      setRouteStatus(error?.code === "SERVER_MISCONFIGURED" ? "web.route.no_key" : "web.route.failed", "error");
+      if (state.navigating) setRideAlert("web.route.reroute_failed");
     }
   }
 
@@ -642,7 +658,7 @@
         );
       }
       state.runtime.trafficCommit();
-      elements.routeTraffic.textContent = trafficLabel(envelope.route);
+      show(elements.routeTraffic, trafficKey(envelope.route));
     } catch {
       if (state.activeTrafficRequestId !== Number(command.requestId)) return;
       state.activeTrafficRequestId = null;
@@ -652,7 +668,7 @@
 
   function selectDestination(place) {
     if (!state.runtime || !state.currentPosition) {
-      showToast(t("web.runtime.not_ready"));
+      showToast("web.runtime.not_ready");
       return;
     }
     state.destination = place;
@@ -661,13 +677,13 @@
     state.arrivedAnnounced = false;
     state.activeRouteRequestId = null;
     state.activeTrafficRequestId = null;
-    elements.routeDestination.textContent = [place.name, place.display_area].filter(Boolean).join(" · ");
-    elements.rideDestination.textContent = place.name || t("web.ride.destination");
+    showVerbatim(elements.routeDestination, [place.name, place.display_area].filter(Boolean).join(" · "));
+    showData(elements.rideDestination, place.name, "web.ride.destination");
     elements.routeDuration.textContent = "--";
     elements.routeDistance.textContent = "--";
-    elements.routeTraffic.textContent = "--";
+    showVerbatim(elements.routeTraffic, "--");
     elements.startNavigation.disabled = true;
-    setRouteStatus(t("web.route.planning"));
+    setRouteStatus("web.route.planning");
     setView("route");
     state.runtime.setNetwork(navigator.onLine ? 1 : 0);
     state.runtime.start(place.location.latitude_deg, place.location.longitude_deg);
@@ -722,7 +738,7 @@
     state.arrivedAnnounced = false;
     await Promise.allSettled([requestOrientationPermission(), acquireWakeLock()]);
     setView("navigation");
-    setRideAlert("");
+    setRideAlert(null);
     if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(t("web.ride.start_speech"));
       utterance.lang = i18n.speechLanguage;
@@ -745,7 +761,7 @@
       state.wakeLock = null;
     }
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    setRideAlert("");
+    setRideAlert(null);
     setView("setup");
   }
 
@@ -757,12 +773,12 @@
     elements.remainingDistance.textContent = i18n.distance(remainingDistance);
     const arrival = new Date(Date.now() + Math.max(0, remainingDuration) * 1000);
     elements.arrivalTime.textContent = remainingDuration > 0 ? i18n.time(arrival) : "--:--";
-    elements.rideConnection.textContent = networkText();
+    show(elements.rideConnection, networkKey());
 
-    if (state.navigating && navState === 4) setRideAlert(t("web.route.off_route"));
+    if (state.navigating && navState === 4) setRideAlert("web.route.off_route");
     if (state.navigating && navState === 5 && !state.arrivedAnnounced) {
       state.arrivedAnnounced = true;
-      setRideAlert(t("web.ride.arrived"));
+      setRideAlert("web.ride.arrived");
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(t("web.ride.arrived"));
         utterance.lang = i18n.speechLanguage;
@@ -772,8 +788,8 @@
 
     const generation = state.runtime.getRouteGeneration();
     if (generation !== state.lastRouteGeneration) state.lastRouteGeneration = generation;
-    elements.dialogRuntime.textContent = t("web.status.lvgl_state",
-      { state: t(NAV_STATE[navState] ?? "web.state.unknown") });
+    show(elements.dialogRuntime, "web.status.lvgl_state",
+      { state: { key: NAV_STATE[navState] ?? "web.state.unknown" } });
   }
 
   function attachRuntime(runtime) {
@@ -799,8 +815,8 @@
       };
       state.destination = { name: t("web.preview.lifecycle"), location: {} };
       state.navigating = false;
-      elements.routeDestination.textContent = t("web.preview.lifecycle");
-      setRouteStatus(t("web.preview.lifecycle_status"), "ready");
+      show(elements.routeDestination, "web.preview.lifecycle");
+      setRouteStatus("web.preview.lifecycle_status", "ready");
       setView("route");
       updateSystemState();
       // Emscripten invokes onRuntimeInitialized immediately before entering
@@ -828,7 +844,7 @@
         location: {},
       };
       state.navigating = true;
-      elements.rideDestination.textContent = t("web.demo.short_name");
+      show(elements.rideDestination, "web.demo.short_name");
       setView("navigation");
       updateSystemState();
       // onRuntimeInitialized fires immediately before Emscripten enters
@@ -861,21 +877,35 @@
     return replacement;
   }
 
-  function runtimeFailed(message) {
+  function runtimeFailed(key, values) {
     state.runtimeReady = false;
-    elements.dialogRuntime.textContent = message;
-    setFeedback(t("web.runtime.load_failed"), "error");
+    show(elements.dialogRuntime, key, values);
+    setFeedback("web.runtime.load_failed", "error");
     updateSystemState();
+  }
+
+  /**
+   * i18n.setChoice() has already rendered every message again; this redraws
+   * what the app formats itself and tells the round display.
+   */
+  function languageChanged() {
+    renderLanguageSettings();
+    drawPlaceholder();
+    updateSystemState();
+    renderLocationAccuracy();
+    if (state.route) renderRouteNumbers(state.route);
+    updateRideReadouts();
+    state.runtime?.setLanguage(i18n.deviceLanguage);
   }
 
   function networkChanged() {
     state.runtime?.setNetwork(navigator.onLine ? 1 : 0);
-    elements.dialogNetwork.textContent = networkText();
-    elements.rideConnection.textContent = networkText();
+    show(elements.dialogNetwork, networkKey());
+    show(elements.rideConnection, networkKey());
     if (!navigator.onLine && state.navigating) {
-      setRideAlert(t("web.ride.offline"));
+      setRideAlert("web.ride.offline");
     } else if (navigator.onLine && state.navigating) {
-      setRideAlert("");
+      setRideAlert(null);
       state.runtime?.tick(Date.now());
     }
   }
@@ -889,12 +919,12 @@
     acquireWakeLock();
     if (state.lastVisibilityPause) {
       state.lastVisibilityPause = false;
-      setRideAlert(t("web.ride.recalibrating"));
+      setRideAlert("web.ride.recalibrating");
       navigator.geolocation?.getCurrentPosition(
         (position) => {
           feedPosition(position);
           state.runtime?.tick(Date.now());
-          window.setTimeout(() => setRideAlert(""), 1800);
+          window.setTimeout(() => setRideAlert(null), 1800);
         },
         onLocationError,
         positionOptions(),
@@ -918,7 +948,7 @@
     elements.destinationQuery.value = "";
     elements.placeResults.replaceChildren();
     elements.clearSearch.hidden = true;
-    setFeedback(t("web.search.prompt"), "info");
+    setFeedback("web.search.prompt", "info");
     elements.destinationQuery.focus();
   });
   elements.routeBack.addEventListener("click", () => cancelNavigation());
@@ -928,6 +958,8 @@
     if (state.view !== "setup") cancelNavigation({ confirmEnd: state.navigating });
   });
   elements.systemState.addEventListener("click", () => elements.statusDialog.showModal());
+  elements.languageSelect.addEventListener("change", () => i18n.setChoice(elements.languageSelect.value));
+  window.addEventListener("moto-languagechange", languageChanged);
   window.addEventListener("online", networkChanged);
   window.addEventListener("offline", networkChanged);
   document.addEventListener("visibilitychange", visibilityChanged);
@@ -941,7 +973,7 @@
   });
 
   i18n.apply();
-  setupLanguageSettings();
+  renderLanguageSettings();
   drawPlaceholder();
   setView("setup");
   updateSystemState();

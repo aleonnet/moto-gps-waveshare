@@ -911,12 +911,6 @@
       "pt-BR": "Idioma",
       "zh-Hans": "语言"
     },
-    "web.status.language_during_ride": {
-      "comment": "Hint: language changes after the ride.",
-      "en-US": "End navigation to change the language.",
-      "pt-BR": "Encerre a navegação para trocar o idioma.",
-      "zh-Hans": "请先结束导航，再更换语言。"
-    },
     "web.status.language_system": {
       "comment": "Language option that follows the browser; {language} is the language name.",
       "en-US": "Browser ({language})",

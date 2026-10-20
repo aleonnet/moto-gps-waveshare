@@ -5,7 +5,6 @@
   const runtimeUrl = `./runtime/moto-gps-device.js?v=${buildId}`;
   const controller = window.MotoNavController;
   if (!controller) return;
-  const { t } = window.MotoI18n;
 
   window.MotoNavLiveBridge = Object.freeze({
     onRouteRequest(command) {
@@ -62,10 +61,10 @@
         console.error(text);
       },
       onAbort(reason) {
-        controller.runtimeFailed(t("web.runtime.aborted", { reason: String(reason) }));
+        controller.runtimeFailed("web.runtime.aborted", { reason: String(reason) });
       },
       onExit(status) {
-        if (status !== 0) controller.runtimeFailed(t("web.runtime.exited", { status }));
+        if (status !== 0) controller.runtimeFailed("web.runtime.exited", { status });
       },
       onRuntimeInitialized() {
         controller.attachRuntime(createApi(window.Module));
@@ -75,7 +74,7 @@
     const script = document.createElement("script");
     script.src = runtimeUrl;
     script.async = true;
-    script.addEventListener("error", () => controller.runtimeFailed(t("web.runtime.download_failed")));
+    script.addEventListener("error", () => controller.runtimeFailed("web.runtime.download_failed"));
     document.body.append(script);
   }
 
@@ -84,5 +83,5 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       mountRuntime();
     })
-    .catch(() => controller.runtimeFailed(t("web.runtime.not_built")));
+    .catch(() => controller.runtimeFailed("web.runtime.not_built"));
 })();
