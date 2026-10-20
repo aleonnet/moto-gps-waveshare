@@ -17,13 +17,14 @@ enum MapPlanningError: LocalizedError {
 
 /// Tile addresses always refer to WGS84 Web Mercator. Geometry sent to the
 /// round screen remains GCJ-02; convert only at this planning boundary.
+/// Downloads use z15; the live surroundings follow the rider's scale (15 or 14).
 enum MapTilePlanner {
     static let zoom = 15
     static let maximumTiles = 40_000
-    private static let count = 1 << zoom
     private static let maximumLatitude = 85.05112878
 
-    static func aroundGCJ02(latitudeDeg: Double, longitudeDeg: Double, radiusM: Double) throws -> [MapTileID] {
+    static func aroundGCJ02(latitudeDeg: Double, longitudeDeg: Double, radiusM: Double,
+                            zoom: Int = MapTilePlanner.zoom) throws -> [MapTileID] {
         guard latitudeDeg.isFinite, longitudeDeg.isFinite,
               abs(latitudeDeg) <= maximumLatitude, abs(longitudeDeg) <= 180,
               radiusM.isFinite, (0 ... 10_000).contains(radiusM)
@@ -31,17 +32,17 @@ enum MapTilePlanner {
         let point = ChinaCoordinateTransform.gcj02ToWGS84(
             GCJ02Point(longitudeDeg: longitudeDeg, latitudeDeg: latitudeDeg)
         )
-        return try aroundWGS84(point, radiusM: radiusM)
+        return try aroundWGS84(point, radiusM: radiusM, zoom: zoom)
     }
 
-    static func boundsWGS84(_ bounds: [Double]) throws -> [MapTileID] {
+    static func boundsWGS84(_ bounds: [Double], zoom: Int = MapTilePlanner.zoom) throws -> [MapTileID] {
         guard bounds.count == 4, bounds.allSatisfy(\.isFinite),
               (-180 ... 180).contains(bounds[0]), (-180 ... 180).contains(bounds[2]),
               abs(bounds[1]) <= maximumLatitude, abs(bounds[3]) <= maximumLatitude,
               bounds[0] < bounds[2], bounds[1] < bounds[3]
         else { throw MapPlanningError.invalidCoordinates }
-        let topLeft = tile(longitude: bounds[0], latitude: bounds[3])
-        let bottomRight = tile(longitude: bounds[2], latitude: bounds[1])
+        let topLeft = tile(longitude: bounds[0], latitude: bounds[3], zoom: zoom)
+        let bottomRight = tile(longitude: bounds[2], latitude: bounds[1], zoom: zoom)
         let columns = bottomRight.x - topLeft.x + 1
         let rows = bottomRight.y - topLeft.y + 1
         guard columns > 0, rows > 0, columns * rows <= maximumTiles else {
@@ -88,16 +89,18 @@ enum MapTilePlanner {
         return result.sorted { $0.y == $1.y ? $0.x < $1.x : $0.y < $1.y }
     }
 
-    private static func aroundWGS84(_ point: WGS84Point, radiusM: Double) throws -> [MapTileID] {
+    private static func aroundWGS84(_ point: WGS84Point, radiusM: Double,
+                                    zoom: Int = MapTilePlanner.zoom) throws -> [MapTileID] {
         let dy = max(1, radiusM) / 111_195
         let dx = dy / max(0.01, cos(point.latitudeDeg * .pi / 180))
         return try boundsWGS84([
             max(-180, point.longitudeDeg - dx), max(-maximumLatitude, point.latitudeDeg - dy),
             min(180, point.longitudeDeg + dx), min(maximumLatitude, point.latitudeDeg + dy)
-        ])
+        ], zoom: zoom)
     }
 
-    private static func tile(longitude: Double, latitude: Double) -> (x: Int, y: Int) {
+    private static func tile(longitude: Double, latitude: Double, zoom: Int) -> (x: Int, y: Int) {
+        let count = 1 << zoom
         let x = Int(floor((longitude + 180) / 360 * Double(count)))
         let y = Int(floor((1 - asinh(tan(latitude * .pi / 180)) / .pi) / 2 * Double(count)))
         return (min(count - 1, max(0, x)), min(count - 1, max(0, y)))

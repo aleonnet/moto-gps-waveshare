@@ -9,7 +9,7 @@ struct DataUseView: View {
         NavigationStack {
             List {
                 Section(L("Location and routes")) {
-                    Text(L("When you search places, plan or replan a route, the search text, start, destination and the needed location are sent to the configured navigation service. With AMap, the gateway forwards the needed information to AMap. Online surrounding-map requests also reveal the area being viewed."))
+                    Text(L("When you search places, plan or replan a route, the search text, start, destination and the needed location are sent to the configured navigation service. The gateway forwards the needed information to AMap in mainland China and to Geoapify elsewhere. Online surrounding-map requests also reveal the area being viewed, and the gateway fetches those map tiles from Protomaps."))
                     Text(L("During navigation, location updates the route and the round-display guidance, and continues with the screen locked or in another app. Ending navigation stops navigation location. You can change permissions in Settings."))
                 }
                 Section(L("Bluetooth and music")) {
@@ -22,6 +22,7 @@ struct DataUseView: View {
                 }
                 Section {
                     Link(L("AMap privacy policy"), destination: URL(string: "https://lbs.amap.com/home/privacy/")!)
+                    Link(L("Geoapify privacy policy"), destination: URL(string: "https://www.geoapify.com/privacy-policy/")!)
                     Link(L("Apple privacy policy"), destination: URL(string: "https://www.apple.com/legal/privacy/")!)
                     Link(L("OpenStreetMap data and license"), destination: URL(string: "https://www.openstreetmap.org/copyright")!)
                     Link(L("Protomaps map data"), destination: URL(string: "https://protomaps.com")!)

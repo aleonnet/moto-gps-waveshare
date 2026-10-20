@@ -3,7 +3,7 @@
 # 路线与周边地图网关
 
 Node.js 20+；以下启动示例建议 Node.js 24+，支持 `--env-file`。
-高德 Key 只放在服务端，不能写到 iOS App、网页或固件。地图解码依赖锁定版本的
+高德、Geoapify 与 Protomaps 的 Key 只放在服务端，不能写到 iOS App、网页或固件。地图解码依赖锁定版本的
 `pmtiles`、`@mapbox/vector-tile` 和 `pbf`，部署前必须安装依赖。
 
 另有 [Cloudflare Workers + R2 部署](cloudflare/README.md)可选，共用接口与协议，保留下面的 Node.js 服务器方案。
@@ -17,9 +17,11 @@ npm test
 MOTO_PROVIDER=fixture WEB_ORIGIN=http://127.0.0.1:4173 npm start
 ```
 
-服务监听 `127.0.0.1:8787`。fixture 返回固定的合成测试路线，搜索结果为空，
-不是实时导航。未设置 `MOTO_PROVIDER` 时默认 fixture，部署时务必显式配置。
-fixture/disabled 模式默认关闭在线地图，测试不需要外网；可以独立覆盖地图源设置。
+服务监听 `127.0.0.1:8787`。fixture 用仓库中的录制响应回答（济南、上海是合成的高德数据，
+圣保罗是录制的 Geoapify 数据），经过真实的转换和地区选择，不联网，也不是实时导航；
+iOS 界面测试由 `scripts/ios/run-ui-tests-with-test-gateway.sh` 启动它。未设置
+`MOTO_PROVIDER` 时默认 fixture，部署时务必显式配置。fixture/disabled 模式默认关闭在线地图，
+测试不需要外网；可以独立覆盖地图源设置。
 
 ## 配置真实服务
 
@@ -33,6 +35,14 @@ node --env-file=.env src/server.js
 
 `npm start` 不会自动读取 `.env`；也可以由自己的服务管理器注入环境变量。
 Key 未准备好时保留 `MOTO_PROVIDER=disabled`，不要把 fixture 当作生产降级结果。
+
+`MOTO_PROVIDER=regional` 在中国大陆使用高德，在其他地区使用 Geoapify（摩托车路线、地点与
+城市搜索）。必须设置 `GEOAPIFY_API_KEY`；`AMAP_WEB_SERVICE_KEY` 可选，未设置时中国大陆的
+请求明确失败。是否属于中国大陆按 Natural Earth 国界判定（港澳台不属于），起终点分属两地的
+路线返回 `CROSS_REGION_ROUTE_UNSUPPORTED`。没有位置的搜索依次参考 Cloudflare 提供的客户端
+国家与 `MOTO_DEFAULT_REGION`（默认 `global`），结果为空时改问另一方一次；提供方出错时不会
+换另一方。Geoapify 返回 WGS84，网关用与地图分块相同的转换输出 GCJ-02 坐标框架。Geoapify
+没有实时路况，也不返回备选路线；免费套餐要求标注 Geoapify。
 生产安装依赖可用 `npm ci --omit=dev`，并保留仓库的 `package-lock.json`。
 
 用自己的 HTTPS 反向代理把 `/moto-gps/api/` 转发到 `http://127.0.0.1:8787/`。
@@ -44,8 +54,9 @@ Key 未准备好时保留 `MOTO_PROVIDER=disabled`，不要把 fixture 当作生
 curl --fail-with-body https://YOUR-DOMAIN/moto-gps/api/healthz
 ```
 
-检查 `provider=amap`、`ready_for_live_navigation=true`、`capabilities.surrounding_map`
-和 `capabilities.map_city_search`。能力标记仅表示配置已启用，**不能替代真实搜索、路线、
+检查 `provider=amap`（或 `regional`）、`ready_for_live_navigation=true`、
+`capabilities.surrounding_map` 和 `capabilities.map_city_search`；regional 模式另有 `regions`
+列出各地区的提供方。能力标记仅表示配置已启用，**不能替代真实搜索、路线、
 城市与未缓存瓦片请求**。地图状态 `map_source` 提供版本、缓存计数、最近成功时间和错误。
 `road_speed_limits` 与 `traffic_light_countdown` 当前均为 `false`。
 
@@ -63,7 +74,7 @@ GET 搜索 URL 可能含搜索词和精确位置，瓦片路径可推断地区�
 | `POST /v1/route-options` | 最多三条候选普通驾车路线，供 App 全览和选择 |
 | `POST /v1/routes` | 单条路线、偏航重算与周期路线/路况刷新 |
 | `GET /v1/map/cities?keywords=...` | 城市、区县及四个直辖市的下载范围；不接受普通省或国家作为下载结果。每个结果带 `scope: "city"` 或 `"district"`，由 App 按用户语言显示 |
-| `GET /v1/map/tiles/15/{x}/{y}` | 一块道路/建筑 JSON；仅支持 z15，x/y 为 0–32767 的整数，不接受查询参数 |
+| `GET /v1/map/tiles/{z}/{x}/{y}` | 一块道路/建筑 JSON；z 为 15（圆屏街道比例）或 14（两倍距离），x/y 为该级别内的整数，不接受查询参数 |
 
 路线请求与响应 schema 在 `shared/protocol`，请求样例在 `fixtures/route-request-v1.json`。
 路线输入位置为 WGS84，路线几何输出为 GCJ-02；地点搜索结果位置为 WGS84。
@@ -100,7 +111,8 @@ GET 搜索 URL 可能含搜索词和精确位置，瓦片路径可推断地区�
 
 | 环境变量 | 默认值与用途 |
 | --- | --- |
-| `MOTO_MAP_PMTILES_URL` | `amap` 模式默认 `auto`；fixture/disabled 默认 `disabled`。也可指定自己的 HTTPS `.pmtiles` URL |
+| `MOTO_MAP_PMTILES_URL` | `amap`、`regional` 模式默认 `auto`；fixture/disabled 默认 `disabled`。也可指定自己的 HTTPS `.pmtiles` URL，或 `protomaps-api` |
+| `PROTOMAPS_API_KEY` | 仅 `protomaps-api` 使用，缺失或格式不对时启动失败 |
 | `MOTO_MAP_CACHE_DIR` | 服务工作目录下 `.cache/map-tiles`；生产应改为专用、持久、可写目录 |
 | `MOTO_MAP_CACHE_MAX_BYTES` | `1073741824`，即 1 GiB JSON 内容；允许 1 KiB–2 GiB 整数值 |
 
@@ -127,6 +139,10 @@ MOTO_MAP_CACHE_MAX_BYTES=1073741824
 整文件的 HTTP 200 会被拒绝；gzip 解压也有限额，不会整包下载全球归档。JSON 最大 8 MiB，
 总计最多 12,000 个要素、每要素 2,048 点、全瓦片 120,000 点。可在 HTTPS 反向代理启用
 JSON gzip，iOS URLSession 会处理 HTTP 解压。
+
+`protomaps-api` 从 Protomaps 托管 API（`api.protomaps.com/tiles/v4`）逐块取得同一 v4 矢量
+分块。Key 只出现在上游请求 URL 中，不会出现在 healthz、错误或缓存文件名；缓存版本标记为
+`api-v4`，超过 7 天后台刷新。官方免费额度仅限非商业用途。
 
 **公共每日归档是过渡数据源，不是稳定生产托管承诺。**
 [Protomaps 官方下载说明](https://docs.protomaps.com/basemaps/downloads)建议复制到自己的

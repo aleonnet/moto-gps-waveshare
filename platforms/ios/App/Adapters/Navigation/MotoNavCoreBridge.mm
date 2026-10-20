@@ -315,6 +315,10 @@ struct BridgeStorage {
   return [self handle:moto::nav::DisplayPageSelected{page}];
 }
 
+- (NSArray<MotoNavCoreCommand *> *)selectMapZoomLevel:(uint8_t)zoomLevel {
+  return [self handle:moto::nav::MapZoomSelected{zoomLevel}];
+}
+
 - (NSArray<MotoNavCoreCommand *> *)pushFixLongitude:(double)longitudeDeg
                                            latitude:(double)latitudeDeg
                                           accuracyM:(double)accuracyM

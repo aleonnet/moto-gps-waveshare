@@ -186,7 +186,8 @@ struct InMemoryOfflineMapSceneIndex: OfflineMapSceneQuerying {
         radiusM: UInt16,
         revision: UInt32
     ) -> OfflineMapSceneWindow {
-        let radius = Double(max(500, min(800, radiusM)))
+        // 500 m at the display's street scale, up to 1000 m zoomed out (z14).
+        let radius = Double(max(500, min(1_000, radiusM)))
         let roadCandidates = roads
             .filter { $0.bounds.intersects(origin: origin, radiusM: radius) }
             .flatMap { indexed in
@@ -405,7 +406,7 @@ final class OfflineMapSceneCoordinator {
 
     init(index: any OfflineMapSceneQuerying, radiusM: UInt16 = 500, refreshDistanceM: Double = 100) {
         self.index = index
-        self.radiusM = max(500, min(800, radiusM))
+        self.radiusM = max(500, min(1_000, radiusM))
         self.refreshDistanceM = max(25, refreshDistanceM)
     }
 

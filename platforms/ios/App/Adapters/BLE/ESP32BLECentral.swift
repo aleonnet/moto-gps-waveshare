@@ -207,6 +207,7 @@ final class ESP32BLECentral: NSObject {
     private static let writeWithoutResponsePacingMs: UInt64 = 15
     private static let mapSceneCapability: UInt32 = 1 << 7
     private static let localeCapability: UInt32 = 1 << 8
+    private static let mapZoomCapability: UInt32 = 1 << 9
 
     private struct RouteGeometrySignature: Equatable {
         let routeID: String
@@ -230,6 +231,7 @@ final class ESP32BLECentral: NSObject {
     private var pendingMediaState: PhoneMediaState?
     private var pendingMapScene: OfflineMapSceneWindow?
     private var pendingLanguageTag: String?
+    private var pendingMapZoomLevel: UInt8?
     private var mapSceneDelivery = BLEMapSceneDelivery()
     private var mapSceneFinalFrame: Data?
     private var shouldMaintainConnection = false
@@ -325,6 +327,13 @@ final class ESP32BLECentral: NSObject {
     func sendLanguage(_ languageTag: String) {
         pendingLanguageTag = languageTag
         flushPendingLanguage()
+    }
+
+    /// Keeps the rider's map scale and repeats it at every new session, like
+    /// the language; the display returns to 15 whenever the link drops.
+    func sendMapZoom(_ zoomLevel: UInt8) {
+        pendingMapZoomLevel = zoomLevel
+        flushPendingMapZoom()
     }
 
     /// Map scenes are sparse, low-frequency replacements.  Retain only the
@@ -586,6 +595,8 @@ final class ESP32BLECentral: NSObject {
                 // Language first: the display then draws the next snapshot
                 // already in the new language.
                 flushPendingLanguage()
+                // The scale before the geometry that is sized for it.
+                flushPendingMapZoom()
                 if let pendingNavigationState {
                     sendNavigationSnapshot(pendingNavigationState)
                 }
@@ -786,6 +797,12 @@ final class ESP32BLECentral: NSObject {
             resetQueuedFrames = true
         }
         outboundFrames.append(contentsOf: frames)
+        if resetQueuedFrames {
+            // The discarded frames may have carried the session's language or
+            // map scale, which are sent once per session; queue them again.
+            flushPendingLanguage()
+            flushPendingMapZoom()
+        }
         flushWrites()
         return resetQueuedFrames
     }
@@ -891,6 +908,20 @@ final class ESP32BLECentral: NSObject {
 
         do {
             try send(codec.encodeLocaleSelection(languageTag))
+        } catch {
+            recoverFromTransportError(error.localizedDescription)
+        }
+    }
+
+    private func flushPendingMapZoom() {
+        guard protocolReady,
+              peerCapabilities & Self.mapZoomCapability != 0,
+              let codec,
+              let zoomLevel = pendingMapZoomLevel
+        else { return }
+
+        do {
+            try send(codec.encodeMapZoom(zoomLevel))
         } catch {
             recoverFromTransportError(error.localizedDescription)
         }

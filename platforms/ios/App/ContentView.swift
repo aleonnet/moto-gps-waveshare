@@ -367,7 +367,7 @@ struct ContentView: View {
                     } header: {
                         Text(L("Choose a route"))
                     } footer: {
-                        Text(L("AMap driving routes · Times change with traffic"))
+                        Text(routeSourceFooter)
                     }
                     Section { mapDownloadsButton }
                 } else if let failure = model.routePreviewFailure {
@@ -516,6 +516,13 @@ struct ContentView: View {
                           color: model.navigation.hasUsableFix ? .green : .secondary)
                 statusRow(L("Traffic"), symbol: "car.side", value: trafficStatus, color: .secondary)
                 SurroundingMapStatusRow(store: model.surroundingMap)
+                Button { model.cycleMapZoom() } label: {
+                    statusRow(L("Round display map"), symbol: "plus.magnifyingglass",
+                              value: mapZoomText, color: .secondary)
+                }
+                .accessibilityIdentifier("map-zoom-toggle")
+                .accessibilityValue(mapZoomText)
+                .accessibilityHint(L("Switches between the street view and twice the distance"))
                 Button(L("Manage offline maps")) { showsMapDownloads = true }
             }
             if model.isDemoActive {
@@ -673,6 +680,17 @@ struct ContentView: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var mapZoomText: String {
+        model.mapZoomLevel == 14 ? L("Wide · about 900 m ahead") : L("Street · about 450 m ahead")
+    }
+
+    /// Credits the service that actually planned the shown routes.
+    private var routeSourceFooter: String {
+        model.selectedRoutePreview?.route.provider == "geoapify"
+            ? L("Geoapify motorcycle routes · Map data © OpenStreetMap contributors")
+            : L("AMap driving routes · Times change with traffic")
     }
 
     private func statusRow(_ title: String, symbol: String, value: String, color: Color) -> some View {

@@ -22,6 +22,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var routePreviewOrigin: WGS84Point?
     @Published private(set) var isPlanningRoutePreview = false
     @Published private(set) var routePreviewFailure: AppMessage?
+    /// The round display's map scale: 15 (street) or 14 (twice the distance).
+    @Published private(set) var mapZoomLevel: UInt8 = 15
 
     private let bluetooth = ESP32BLECentral()
     private let liveLocation = CoreLocationNavigationSource()
@@ -39,6 +41,7 @@ final class AppModel: ObservableObject {
     private var routePreviewGeneration: UInt64 = 0
 
     private static let recentPlacesKey = "MotoGPS.RecentPlaces.v1"
+    private static let mapZoomLevelKey = "MotoGPS.MapZoomLevel.v1"
 
     /// Views reading it redraw when the language changes; see AppLocalization.
     var language: AppLanguage { AppLocalization.shared.language }
@@ -49,6 +52,12 @@ final class AppModel: ObservableObject {
         mapGatewayBaseURL = gatewayBaseURL
         surroundingMap = SurroundingMapStore(baseURL: gatewayBaseURL)
         recentPlaces = Self.loadRecentPlaces()
+        #if DEBUG
+        // Offline UI checks start from the same screen whatever earlier runs saved.
+        if ProcessInfo.processInfo.arguments.contains("--moto-ui-offline") { recentPlaces = [] }
+        #endif
+        mapZoomLevel = UserDefaults.standard.integer(forKey: Self.mapZoomLevelKey) == 14 ? 14 : 15
+        surroundingMap.setZoomLevel(mapZoomLevel)
 
         surroundingMap.onScene = { [weak self] scene in
             self?.bluetooth.sendMapScene(scene)
@@ -65,6 +74,11 @@ final class AppModel: ObservableObject {
                 return runtime.selectDisplayPage(rawValue: command.page)
                     ? .accepted
                     : .unsupported
+            case 1:
+                // A tap on the round display's map (page 0, navigation).
+                guard command.page == 0 else { return .unsupported }
+                self.cycleMapZoom()
+                return .accepted
             case 16 ... 19:
                 return self.mediaController.handleDeviceCommand(kind: command.kind)
             default:
@@ -75,6 +89,7 @@ final class AppModel: ObservableObject {
             self?.bluetooth.sendMediaState(state)
         }
         bluetooth.sendLanguage(AppLocalization.shared.deviceLanguageTag)
+        bluetooth.sendMapZoom(mapZoomLevel)
         searchLocation.onLocationChange = { [weak self] point in
             guard let self else { return }
             let query = self.destinationQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -129,7 +144,20 @@ final class AppModel: ObservableObject {
     }
 
     var isGatewayConfigured: Bool {
-        (try? GatewayConfiguration.normalizedURL(mapGatewayBaseURL.absoluteString)) != nil
+        if mapGatewayBaseURL == AppConfiguration.localTestGatewayURL { return true }
+        return (try? GatewayConfiguration.normalizedURL(mapGatewayBaseURL.absoluteString)) != nil
+    }
+
+    /// Switches the round display between 15 and 14 from the app or a tap on
+    /// the display. The phone owns the scale: NavCore widens the route window,
+    /// the surroundings reload from z14 tiles, and the display follows MapZoom.
+    func cycleMapZoom() {
+        mapZoomLevel = mapZoomLevel == 15 ? 14 : 15
+        UserDefaults.standard.set(Int(mapZoomLevel), forKey: Self.mapZoomLevelKey)
+        // The scale goes out before the wider route window and map scene.
+        bluetooth.sendMapZoom(mapZoomLevel)
+        runtime?.selectMapZoomLevel(mapZoomLevel)
+        surroundingMap.setZoomLevel(mapZoomLevel)
     }
 
     func selectLanguage(_ language: AppLanguage) {
@@ -162,6 +190,7 @@ final class AppModel: ObservableObject {
         placeProvider = AmapGatewayPlaceProvider(baseURL: url)
         mapGatewayBaseURL = url
         try GatewayConfiguration.save(url.absoluteString)
+        AppConfiguration.forgetLocalTestGateway()
     }
 
     var deviceReady: Bool {
@@ -204,7 +233,7 @@ final class AppModel: ObservableObject {
         }
         switch navigation.stateName {
         case "acquiring": return L("Keep precise location turned on")
-        case "planning": return L("Reading the live AMap route and traffic")
+        case "planning": return L("Reading the live route and traffic")
         case "navigating":
             return deviceReady
                 ? L("You can lock the phone and put it in your pocket")
@@ -456,6 +485,8 @@ final class AppModel: ObservableObject {
         runtime.onFailure = { [weak self] error in
             self?.navigationFailure = .error(error)
         }
+        // Each runtime owns a fresh NavCore; it starts at the rider's scale.
+        runtime.selectMapZoomLevel(mapZoomLevel)
     }
 
     private func beginRoutePreviewRequestIfPossible() {
@@ -493,7 +524,7 @@ final class AppModel: ObservableObject {
                     RoutePreviewCandidate(ordinal: $0.offset, route: $0.element)
                 }
                 guard let first = candidates.first else {
-                    self.failRoutePreview("AMap returned no usable route. Try again later.")
+                    self.failRoutePreview("The map service returned no usable route. Try again later.")
                     return
                 }
                 self.routePreviewCandidates = candidates

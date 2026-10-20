@@ -40,8 +40,8 @@ npm run dev
 ```
 
 Windows 可在 PowerShell 中用 `Copy-Item .dev.vars.example .dev.vars`，其余 npm 命令相同。
-然后打开 `http://localhost:8787/healthz`。示例是 **fixture 模式**：返回合成路线、空搜索结果，
-`ready_for_live_navigation=false`，不会访问高德或在线地图。`.dev.vars` 只供本地使用，不会部署为远端配置。
+然后打开 `http://localhost:8787/healthz`。示例是 **fixture 模式**：用录制的高德（合成）与
+Geoapify 响应回答，`ready_for_live_navigation=false`，不会访问高德、Geoapify 或在线地图。`.dev.vars` 只供本地使用，不会部署为远端配置。
 
 ## 2. 创建 R2 和配置 Worker
 
@@ -62,8 +62,9 @@ R2 不沿用 Node 方案的 1 GiB 磁盘 LRU，总存储量由访问范围和生
 
 | 配置 | 用途 |
 | --- | --- |
-| `MOTO_PROVIDER` | 正式导航设为 `amap`；默认 `disabled`；`fixture` 仅用于演示测试 |
-| `MOTO_MAP_PMTILES_URL` | `auto` 自动选择已完成的 Protomaps 构建；也可指定可信的 HTTPS `.pmtiles` 地址或 `disabled` |
+| `MOTO_PROVIDER` | 正式导航设为 `amap`（全部使用高德）或 `regional`（中国大陆用高德，其他地区用 Geoapify）；默认 `disabled`；`fixture` 仅用于演示测试 |
+| `MOTO_DEFAULT_REGION` | `regional` 模式下，没有位置也没有客户端国家的搜索使用的地区：`global`（默认）或 `china` |
+| `MOTO_MAP_PMTILES_URL` | `auto` 自动选择已完成的 Protomaps 构建；也可指定可信的 HTTPS `.pmtiles` 地址、`protomaps-api`（托管 API，需要 `PROTOMAPS_API_KEY`）或 `disabled` |
 | `WEB_ORIGIN` | 允许的网页 Origin，例如 `https://nav.example.com`；只用原生 App 可设空字符串 |
 | `MOTO_BASE_PATH` | 默认空字符串，接口在 `/v1/...`；如设 `/moto-gps/api`，接口就在 `/moto-gps/api/v1/...`，不要加末尾 `/` |
 
@@ -74,6 +75,10 @@ R2 不沿用 Node 方案的 1 GiB 磁盘 LRU，总存储量由访问范围和生
 
 ```sh
 npx wrangler secret put AMAP_WEB_SERVICE_KEY
+# regional 模式还需要：
+npx wrangler secret put GEOAPIFY_API_KEY
+# 地图源为 protomaps-api 时：
+npx wrangler secret put PROTOMAPS_API_KEY
 ```
 
 在提示中粘贴 Key，不要写入 `wrangler.jsonc`、Git 或 Issue。启用 `amap` 却没有 Key 时返回 503，
@@ -138,6 +143,8 @@ Issue 中的 OTA 下载速度不能替代这些验证；本方案没有内置 IP
 - 每个请求单独管理 PMTiles I/O，避免 Workers 跨请求共享未完成的读写。R2 缓存和地图源元数据跨请求保留。
 - 自动地图源每日刷新；已缓存瓦片先返回，过期数据通过 `waitUntil` 后台更新。Cron 为 UTC 03:17。
   没有缓存且上游不可用时返回 503，不生成假道路；已有缓存可继续使用。
+- regional 模式下，Worker 用 Cloudflare 的 `request.cf.country` 填写 `X-Client-Country`，覆盖客户端
+  自带的同名头；没有位置的搜索据此选择提供方。
 - R2 读写失败不会暴露密钥。写入失败时本次已取得的真实地图仍可返回，但后续请求可能需要重新下载。
 - Cloudflare 限流按 IP 分为路线 30、搜索 60、城市 30、瓦片 600 次/分钟。
   这是边缘限流而非全账号严格配额；不同网关应使用独立的 `namespace_id`，避免互相占用额度。

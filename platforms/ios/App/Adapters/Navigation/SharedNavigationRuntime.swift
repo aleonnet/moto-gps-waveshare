@@ -99,6 +99,12 @@ final class SharedNavigationRuntime {
         return bridge.snapshot.displayPageName == name
     }
 
+    /// The rider's map scale; NavCore widens the route window sent to the
+    /// round display at once and keeps the level across reroutes.
+    func selectMapZoomLevel(_ zoomLevel: UInt8) {
+        publish(bridge.selectMapZoomLevel(zoomLevel))
+    }
+
     private func accept(_ fix: NavigationFix) {
         let commands = bridge.pushFixLongitude(
             fix.coordinate.longitudeDeg,

@@ -52,7 +52,7 @@ final class SQLiteOfflineMapSceneIndex: OfflineMapSceneQuerying, @unchecked Send
         lock.lock()
         defer { lock.unlock() }
 
-        let radius = UInt16(max(500, min(800, radiusM)))
+        let radius = UInt16(max(500, min(1_000, radiusM)))
         let bounds = Self.queryBounds(origin: origin, radiusM: Double(radius))
         do {
             let roads = try loadRoadCandidates(bounds: bounds, origin: origin)

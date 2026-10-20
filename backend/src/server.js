@@ -89,8 +89,11 @@ async function main() {
   await mapProvider?.initialize();
   const server = createGateway({ provider, mapProvider, allowedOrigin, providerMode });
 
-  server.listen(port, "127.0.0.1", () => {
-    console.log(`MOTO GPS gateway listening on http://127.0.0.1:${port} (${providerMode})`);
+  // Loopback by default. A bench test from a phone on the same Wi-Fi sets
+  // MOTO_LISTEN_HOST=0.0.0.0 and reaches the Mac's .local name over HTTP.
+  const host = process.env.MOTO_LISTEN_HOST ?? "127.0.0.1";
+  server.listen(port, host, () => {
+    console.log(`MOTO GPS gateway listening on http://${host}:${port} (${providerMode})`);
   });
 
   const close = () => { mapProvider?.close(); server.close(); };

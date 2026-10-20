@@ -41,7 +41,7 @@ final class AmapGatewayRouteProvider: NavigationRouteProviding, @unchecked Senda
 
     func route(for request: RouteRequest) async throws -> RouteEnvelope {
         let endpoint = baseURL.appending(path: "v1/routes")
-        guard endpoint.scheme == "https" || endpoint.host == "127.0.0.1" || endpoint.host == "localhost" else {
+        guard endpoint.scheme == "https" || AppConfiguration.isLocalHTTP(endpoint) else {
             throw AmapGatewayError.invalidEndpoint
         }
 
@@ -50,6 +50,7 @@ final class AmapGatewayRouteProvider: NavigationRouteProviding, @unchecked Senda
         urlRequest.timeoutInterval = 15
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        urlRequest.setValue(AppLocalization.shared.deviceLanguageTag, forHTTPHeaderField: "Accept-Language")
         urlRequest.httpBody = try encoder.encode(request)
 
         let (data, response) = try await session.data(for: urlRequest)
@@ -75,7 +76,7 @@ final class AmapGatewayRouteProvider: NavigationRouteProviding, @unchecked Senda
     /// make normal navigation unavailable during a staggered deployment.
     func routeOptions(for request: RouteRequest) async throws -> [RoutePlan] {
         let endpoint = baseURL.appending(path: "v1/route-options")
-        guard endpoint.scheme == "https" || endpoint.host == "127.0.0.1" || endpoint.host == "localhost" else {
+        guard endpoint.scheme == "https" || AppConfiguration.isLocalHTTP(endpoint) else {
             throw AmapGatewayError.invalidEndpoint
         }
 
@@ -84,6 +85,7 @@ final class AmapGatewayRouteProvider: NavigationRouteProviding, @unchecked Senda
         urlRequest.timeoutInterval = 15
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        urlRequest.setValue(AppLocalization.shared.deviceLanguageTag, forHTTPHeaderField: "Accept-Language")
         urlRequest.httpBody = try encoder.encode(request)
 
         let (data, response) = try await session.data(for: urlRequest)

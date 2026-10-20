@@ -209,22 +209,6 @@
         }
       }
     },
-    "AMap returned no usable route. Try again later." : {
-      "localizations" : {
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O AMap não devolveu nenhuma rota utilizável. Tente mais tarde."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "高德没有返回可用路线，请稍后重试"
-          }
-        }
-      }
-    },
     "Apple privacy policy" : {
       "localizations" : {
         "pt-BR" : {
@@ -1261,6 +1245,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网关设置"
+          }
+        }
+      }
+    },
+    "Geoapify motorcycle routes · Map data © OpenStreetMap contributors" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotas de moto da Geoapify · Dados do mapa © colaboradores do OpenStreetMap"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geoapify 摩托车路线 · 地图数据 © OpenStreetMap 贡献者"
+          }
+        }
+      }
+    },
+    "Geoapify privacy policy" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Política de privacidade da Geoapify"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geoapify 隐私政策"
           }
         }
       }
@@ -2497,18 +2513,18 @@
         }
       }
     },
-    "Reading the live AMap route and traffic" : {
+    "Reading the live route and traffic" : {
       "localizations" : {
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lendo a rota e o trânsito em tempo real do AMap"
+            "value" : "Lendo a rota e o trânsito em tempo real"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在读取高德实时路线与路况"
+            "value" : "正在读取实时路线与路况"
           }
         }
       }
@@ -2717,6 +2733,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "蓝框内的道路和建筑将保存在手机。范围覆盖所选城市或区县，边缘可能包括部分相邻地区。"
+          }
+        }
+      }
+    },
+    "Round display map" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mapa da tela redonda"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圆屏地图"
           }
         }
       }
@@ -3073,6 +3105,22 @@
         }
       }
     },
+    "Street · about 450 m ahead" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rua · cerca de 450 m à frente"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "街道 · 前方约 450 米"
+          }
+        }
+      }
+    },
     "Surrounding map" : {
       "localizations" : {
         "pt-BR" : {
@@ -3101,6 +3149,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "周边地图已就绪 · 使用缓存"
+          }
+        }
+      }
+    },
+    "Switches between the street view and twice the distance" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alterna entre a vista de rua e o dobro da distância"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在街道视图与两倍距离之间切换"
           }
         }
       }
@@ -3213,6 +3277,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "地图服务暂时不可用"
+          }
+        }
+      }
+    },
+    "The map service returned no usable route. Try again later." : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O serviço de mapas não devolveu nenhuma rota utilizável. Tente mais tarde."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地图服务没有返回可用路线，请稍后重试"
           }
         }
       }
@@ -3745,18 +3825,18 @@
         }
       }
     },
-    "When you search places, plan or replan a route, the search text, start, destination and the needed location are sent to the configured navigation service. With AMap, the gateway forwards the needed information to AMap. Online surrounding-map requests also reveal the area being viewed." : {
+    "When you search places, plan or replan a route, the search text, start, destination and the needed location are sent to the configured navigation service. The gateway forwards the needed information to AMap in mainland China and to Geoapify elsewhere. Online surrounding-map requests also reveal the area being viewed, and the gateway fetches those map tiles from Protomaps." : {
       "localizations" : {
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ao buscar lugares e planejar ou recalcular uma rota, o texto da busca, a partida, o destino e a localização necessária vão para o serviço de navegação configurado. Com o AMap, o gateway repassa ao AMap as informações necessárias. Os pedidos de mapa online dos arredores também revelam a área vista."
+            "value" : "Ao buscar lugares e planejar ou recalcular uma rota, o texto da busca, a partida, o destino e a localização necessária vão para o serviço de navegação configurado. O gateway repassa as informações necessárias ao AMap na China continental e à Geoapify nos demais lugares. Os pedidos de mapa online dos arredores também revelam a área vista, e o gateway busca esses mapas no Protomaps."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "地点搜索、规划和重新规划路线时，搜索内容、起终点及所需位置会发送给配置的导航服务。使用高德服务时，网关会再将所需信息发送给高德。在线周边地图请求也会透露所查看的区域。"
+            "value" : "地点搜索、规划和重新规划路线时，搜索内容、起终点及所需位置会发送给配置的导航服务。网关在中国大陆会将所需信息发送给高德，在其他地区发送给 Geoapify。在线周边地图请求也会透露所查看的区域，网关会从 Protomaps 获取这些地图分块。"
           }
         }
       }
@@ -3789,6 +3869,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全市范围"
+          }
+        }
+      }
+    },
+    "Wide · about 900 m ahead" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amplo · cerca de 900 m à frente"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远景 · 前方约 900 米"
           }
         }
       }

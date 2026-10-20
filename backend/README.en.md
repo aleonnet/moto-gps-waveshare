@@ -5,7 +5,7 @@
 # Route and surrounding-map gateway
 
 Node.js 20+ is required; Node.js 24+ is recommended for the `--env-file` examples below.
-Keep the AMap key on the server, never in the iOS app, website or firmware. Map decoding depends on
+Keep the AMap, Geoapify and Protomaps keys on the server, never in the iOS app, website or firmware. Map decoding depends on
 pinned versions of `pmtiles`, `@mapbox/vector-tile` and `pbf`; install dependencies before deployment.
 
 An optional [Cloudflare Workers + R2 deployment](cloudflare/README.en.md) uses the same API and protocol. The Node.js server option below remains supported.
@@ -19,9 +19,11 @@ npm test
 MOTO_PROVIDER=fixture WEB_ORIGIN=http://127.0.0.1:4173 npm start
 ```
 
-The service listens on `127.0.0.1:8787`. The fixture returns a fixed synthetic route and empty search
-results, not live navigation. An unset `MOTO_PROVIDER` defaults to fixture; configure it explicitly
-when deploying. Online maps default to disabled in fixture/disabled modes, so tests need no external
+The service listens on `127.0.0.1:8787`. The fixture answers from responses kept in the repository
+(Jinan and Shanghai are synthetic AMap data, Sao Paulo is recorded Geoapify data) through the real
+transformers and regional choice, offline; it is not live navigation. The iOS UI tests start it through
+`scripts/ios/run-ui-tests-with-test-gateway.sh`. An unset `MOTO_PROVIDER` defaults to fixture; configure
+it explicitly when deploying. Online maps default to disabled in fixture/disabled modes, so tests need no external
 network. The map-source setting can be overridden independently.
 
 ## Configure the live service
@@ -36,6 +38,16 @@ node --env-file=.env src/server.js
 
 `npm start` does not read `.env` automatically; a service manager can inject the environment instead.
 Until the key is ready, keep `MOTO_PROVIDER=disabled`. Do not use fixture as a production fallback.
+
+`MOTO_PROVIDER=regional` uses AMap in mainland China and Geoapify everywhere else (motorcycle routes,
+place and city search). `GEOAPIFY_API_KEY` is required; `AMAP_WEB_SERVICE_KEY` is optional, and without
+it mainland requests fail explicitly. Mainland China is decided by Natural Earth borders (Hong Kong,
+Macau and Taiwan are outside), and a route whose ends fall on different sides returns
+`CROSS_REGION_ROUTE_UNSUPPORTED`. A search without a position follows the client country reported by
+Cloudflare, then `MOTO_DEFAULT_REGION` (`global` by default), and asks the other provider once when the
+answer is empty; a failing provider is never replaced by the other one. Geoapify answers in WGS84 and
+the gateway outputs the GCJ-02 frame with the same conversion as the map tiles. Geoapify has no live
+traffic and returns no alternative routes; its free plan requires a Geoapify attribution.
 Production dependency installation can use `npm ci --omit=dev`; retain `package-lock.json`.
 
 Use your own HTTPS reverse proxy to forward `/moto-gps/api/` to `http://127.0.0.1:8787/`.
@@ -47,8 +59,8 @@ the computer's localhost is not usable there. See the [gateway guide](../docs/GA
 curl --fail-with-body https://YOUR-DOMAIN/moto-gps/api/healthz
 ```
 
-Check `provider=amap`, `ready_for_live_navigation=true`, `capabilities.surrounding_map` and
-`capabilities.map_city_search`. Capability flags indicate configuration, **not a substitute for real
+Check `provider=amap` (or `regional`), `ready_for_live_navigation=true`, `capabilities.surrounding_map`
+and `capabilities.map_city_search`; regional mode also lists each region's provider under `regions`. Capability flags indicate configuration, **not a substitute for real
 place, route, city and uncached-tile requests**. `map_source` reports the revision, cache counts, last
 success and errors. `road_speed_limits` and `traffic_light_countdown` are currently both `false`.
 
@@ -67,7 +79,7 @@ these. Verify rotation, backups, retention and privacy disclosures. Do not claim
 | `POST /v1/route-options` | Up to three ordinary driving routes for preview and selection |
 | `POST /v1/routes` | A route, off-route rerouting and periodic route/traffic refresh |
 | `GET /v1/map/cities?keywords=...` | City, district and four province-level municipality download bounds; ordinary provinces and countries are excluded. Each result has `scope: "city"` or `"district"`; the app words it in the user's language |
-| `GET /v1/map/tiles/15/{x}/{y}` | One road/building JSON tile; z15 only, integer x/y from 0 to 32767, no query parameters |
+| `GET /v1/map/tiles/{z}/{x}/{y}` | One road/building JSON tile; z is 15 (the round display's street scale) or 14 (twice the distance), integer x/y inside that zoom, no query parameters |
 
 Route schemas are in `shared/protocol`; see `fixtures/route-request-v1.json` for a request example.
 Route input positions are WGS84 and output geometry is GCJ-02; place-search result positions are WGS84.
@@ -110,7 +122,8 @@ successfully downloaded maps.
 
 | Environment variable | Default and purpose |
 | --- | --- |
-| `MOTO_MAP_PMTILES_URL` | `auto` in `amap` mode; `disabled` in fixture/disabled modes. Can be your own HTTPS `.pmtiles` URL |
+| `MOTO_MAP_PMTILES_URL` | `auto` in `amap` and `regional` modes; `disabled` in fixture/disabled modes. Can be your own HTTPS `.pmtiles` URL, or `protomaps-api` |
+| `PROTOMAPS_API_KEY` | Used only by `protomaps-api`; a missing or malformed key fails at start |
 | `MOTO_MAP_CACHE_DIR` | `.cache/map-tiles` under the service working directory; use dedicated persistent writable storage in production |
 | `MOTO_MAP_CACHE_MAX_BYTES` | `1073741824`, or 1 GiB of JSON content; accepts integer limits from 1 KiB to 2 GiB |
 
@@ -142,6 +155,11 @@ HTTP 200 whole-file responses that ignore Range are rejected, and gzip decompres
 the global archive is never downloaded in full. JSON is limited to 8 MiB, 12,000 total features,
 2,048 points per feature and 120,000 points per tile. JSON gzip can be enabled at the HTTPS proxy;
 iOS URLSession handles HTTP decompression.
+
+`protomaps-api` fetches the same v4 vector tiles one by one from the hosted Protomaps API
+(`api.protomaps.com/tiles/v4`). The key appears only in the upstream request URL, never in healthz,
+errors or cache file names; cached tiles carry the revision `api-v4` and refresh in the background after
+7 days. The official free tier is for non-commercial use only.
 
 **Public daily archives are a transitional source, not a production availability guarantee.**
 The [official Protomaps download guidance](https://docs.protomaps.com/basemaps/downloads) recommends

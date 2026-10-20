@@ -1,7 +1,8 @@
 // Planner contract (implemented in MapTilePlanner.swift):
 // MapTilePlanner.aroundGCJ02(latitudeDeg: Double, longitudeDeg: Double,
-//                          radiusM: Double) throws -> [MapTileID]
-// Inputs and scene geometry are GCJ-02; tile IDs identify Web Mercator z15 tiles.
+//                          radiusM: Double, zoom: Int) throws -> [MapTileID]
+// Inputs and scene geometry are GCJ-02; tile IDs identify Web Mercator z15 tiles,
+// or z14 while the rider has the round display zoomed out.
 import Combine
 import Foundation
 
@@ -16,7 +17,7 @@ struct MapTileID: Codable, Hashable, Sendable {
         self.y = y
     }
 
-    var isValid: Bool { z == 15 && (0 ..< 32_768).contains(x) && (0 ..< 32_768).contains(y) }
+    var isValid: Bool { (14 ... 15).contains(z) && (0 ..< 1 << z).contains(x) && (0 ..< 1 << z).contains(y) }
     var filename: String { "\(z)-\(x)-\(y).json" }
 }
 
@@ -510,8 +511,13 @@ final class SurroundingMapStore: ObservableObject {
     private var downloadGeneration: UInt64 = 0
     private var revision: UInt32 = 0
     private var lastOrigin: OfflineMapPointE6?
+    private var lastPosition: (latitudeDeg: Double, longitudeDeg: Double)?
     private var retryAfter: Date?
     private var activeDownloadID: String?
+    /// The round display's scale: 15 shows about 500 m around the rider, 14
+    /// twice that, from z14 tiles.
+    private(set) var zoomLevel: UInt8 = 15
+    private var sceneRadiusM: UInt16 { zoomLevel == 14 ? 1_000 : 500 }
 
     init(baseURL: URL, bundle: Bundle = .main, storageURL: URL? = nil,
          loader: MapTileCache.Loader? = nil) {
@@ -537,12 +543,15 @@ final class SurroundingMapStore: ObservableObject {
         else { return }
         let origin = OfflineMapPointE6(latitudeE6: Int32((latitudeDeg * 1_000_000).rounded()),
                                      longitudeE6: Int32((longitudeDeg * 1_000_000).rounded()))
+        lastPosition = (latitudeDeg, longitudeDeg)
         if let lastOrigin, Self.distance(lastOrigin, origin) < 100,
            retryAfter.map({ Date() < $0 }) ?? true { return }
         let tiles: [MapTileID]
         do {
             tiles = Array(Set(try MapTilePlanner.aroundGCJ02(latitudeDeg: latitudeDeg,
-                                                           longitudeDeg: longitudeDeg, radiusM: 500)))
+                                                           longitudeDeg: longitudeDeg,
+                                                           radiusM: Double(sceneRadiusM),
+                                                           zoom: Int(zoomLevel))))
             guard !tiles.isEmpty, tiles.count <= 64, tiles.allSatisfy(\.isValid) else {
                 throw SurroundingMapError.invalidTile
             }
@@ -602,6 +611,17 @@ final class SurroundingMapStore: ObservableObject {
         }
     }
 
+    /// Rebuilds the surroundings at once at the new scale, from the last position.
+    func setZoomLevel(_ level: UInt8) {
+        guard level == 14 || level == 15, level != zoomLevel else { return }
+        zoomLevel = level
+        lastOrigin = nil
+        retryAfter = nil
+        if let lastPosition {
+            update(latitudeDeg: lastPosition.latitudeDeg, longitudeDeg: lastPosition.longitudeDeg)
+        }
+    }
+
     func changeGateway(to baseURL: URL) async {
         reset()
         cancelDownload()
@@ -613,6 +633,7 @@ final class SurroundingMapStore: ObservableObject {
         sceneTask?.cancel()
         sceneTask = nil
         lastOrigin = nil
+        lastPosition = nil
         retryAfter = nil
         status = .standby
     }
@@ -719,7 +740,7 @@ final class SurroundingMapStore: ObservableObject {
         var buildings: [OfflineMapBuilding] = []
         var roadKeys: Set<RoadKey> = []
         var buildingKeys: Set<RoadKey> = []
-        let backup = includeFallback ? fallback?.query(around: origin, radiusM: 500, revision: 0) : nil
+        let backup = includeFallback ? fallback?.query(around: origin, radiusM: sceneRadiusM, revision: 0) : nil
         for road in documents.flatMap(\.roads) + (backup?.roads ?? []) {
             if roadKeys.insert(RoadKey(id: road.osmWayID, kind: road.roadClass, points: road.points)).inserted {
                 roads.append(road)
@@ -733,12 +754,13 @@ final class SurroundingMapStore: ObservableObject {
         revision &+= 1
         if revision == 0 { revision = 1 }
         let document = OfflineMapSceneDocument(schemaVersion: 1, coordinateSystem: "GCJ-02",
-                                              sceneRevision: revision, viewOrigin: origin, radiusM: 500,
+                                              sceneRevision: revision, viewOrigin: origin, radiusM: sceneRadiusM,
                                               roads: roads, buildings: buildings,
                                               source: OfflineMapSource(provider: "map-tiles", licence: "ODbL-1.0",
                                                                        attributionURL: "https://www.openstreetmap.org/copyright",
                                                                        retrievedAt: "", bboxWGS84: nil))
-        let window = InMemoryOfflineMapSceneIndex(document: document).query(around: origin, radiusM: 500, revision: revision)
+        let window = InMemoryOfflineMapSceneIndex(document: document).query(around: origin, radiusM: sceneRadiusM,
+                                                                             revision: revision)
         onScene?(window)
         return !window.roads.isEmpty || !window.buildings.isEmpty
     }
@@ -752,7 +774,7 @@ final class SurroundingMapStore: ObservableObject {
     private static func httpLoader(baseURL: URL) -> MapTileCache.Loader {
         { tile in
             let url = baseURL.appendingPathComponent("v1/map/tiles/\(tile.z)/\(tile.x)/\(tile.y)")
-            guard url.scheme == "https" || ["localhost", "127.0.0.1"].contains(url.host ?? "") else {
+            guard url.scheme == "https" || AppConfiguration.isLocalHTTP(url) else {
                 throw SurroundingMapError.invalidResponse
             }
             var request = URLRequest(url: url)

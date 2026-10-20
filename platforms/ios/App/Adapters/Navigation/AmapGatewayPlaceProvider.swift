@@ -59,7 +59,7 @@ final class AmapGatewayPlaceProvider: @unchecked Sendable {
         guard query.count >= 2 else { return [] }
 
         let endpoint = baseURL.appending(path: "v1/places")
-        guard endpoint.scheme == "https" || endpoint.host == "127.0.0.1" || endpoint.host == "localhost",
+        guard endpoint.scheme == "https" || AppConfiguration.isLocalHTTP(endpoint),
               var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
         else {
             throw AmapGatewayError.invalidEndpoint
@@ -80,6 +80,8 @@ final class AmapGatewayPlaceProvider: @unchecked Sendable {
         request.httpMethod = "GET"
         request.timeoutInterval = 10
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // Outside mainland China the gateway asks Geoapify for names in this language.
+        request.setValue(AppLocalization.shared.deviceLanguageTag, forHTTPHeaderField: "Accept-Language")
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {

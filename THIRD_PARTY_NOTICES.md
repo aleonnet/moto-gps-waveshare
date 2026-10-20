@@ -11,7 +11,8 @@
 | Waveshare BSP / CO5300 初始化 | Component Registry `waveshare/esp32_s3_touch_amoled_1_75c` 3.0.0；板级派生文件 `platforms/esp32/main/board_port_waveshare_1_75c.cpp` | Apache-2.0；见 `LICENSES/Waveshare-Apache-2.0.txt`，该派生文件保留 Apache-2.0 |
 | Source Han Sans SC 字体子集 | `shared/nav_ui/assets/moto_font_cjk_16.c`（由 `scripts/generate_fonts.sh` 从 LVGL 工具目录的 `SourceHanSansSC-Normal.otf` 生成）及 LVGL 内置的 `lv_font_source_han_sans_sc_16_cjk` | SIL OFL 1.1；见 `LICENSES/SourceHanSansSC-OFL.txt` |
 | Montserrat 字体子集 | `shared/nav_ui/assets/moto_font_latin_16.c`、`_20.c`、`_28.c`、`_48.c`（由 `scripts/generate_fonts.sh` 从 LVGL 工具目录的 `Montserrat-Medium.ttf` 生成） | SIL OFL 1.1；见 `LICENSES/Montserrat-OFL.txt` |
-| OpenStreetMap 数据 / 派生数据库 | `shared/offline_map/jinan-v1.sqlite`、其 SQL/manifest；`shared/demo_fixture` 中的路线/道路/建筑几何；生成 C++ / Swift 常量中的地图数据 | ODbL 1.0，© OpenStreetMap contributors |
+| OpenStreetMap 数据 / 派生数据库 | `shared/offline_map/jinan-v1.sqlite`、其 SQL/manifest；`shared/demo_fixture` 中的路线/道路/建筑几何；生成 C++ / Swift 常量中的地图数据；`backend/fixtures` 中的 Protomaps 矢量分块及录制的 Geoapify 地点、城市与路线响应（Geoapify 基于 OSM） | ODbL 1.0，© OpenStreetMap contributors |
+| Natural Earth 国界 | `backend/src/china-mainland.js` 中简化后的 Admin 0 Countries v5.1.2（1:10m、1:50m）轮廓，仅用于选择中国大陆的提供方 | 公有领域（public domain）；[Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/) |
 | Nodemailer | `website/server` 邮件服务依赖，锁定于 `package-lock.json`；[上游](https://nodemailer.com/) | MIT-0；许可证随依赖包提供 |
 
 OSM 署名与许可：<https://www.openstreetmap.org/copyright>。
@@ -28,9 +29,11 @@ ESP-IDF 依赖版本记录在 `platforms/esp32/dependencies.lock`。
 Web 构建使用 Emscripten / SDL，相关工具链及运行时亦保留其原始许可证。
 重新生成字体所需 `lv_font_conv` 由其发布方许可；本仓库不重新授权该工具。
 
-高德、Apple Music、Apple MapKit 是外部服务/SDK，不包含在项目许可证授权范围内。
+高德、Geoapify、Protomaps API、Apple Music、Apple MapKit 是外部服务/SDK，不包含在项目许可证授权范围内。
+Geoapify 免费套餐要求标注 Geoapify；Protomaps API 的免费额度仅限非商业用途。
 请使用自己的合法账号、Key、配额并核对服务协议及硬件展示场景的授权要求。
-本仓库不附带高德 API 原始响应缓存、地图瓦片、Apple Music 音乐文件或专有 SDK 副本。
+本仓库不附带高德 API 原始响应缓存（`backend/fixtures` 中的高德样例是合成数据）、地图瓦片服务数据、
+Apple Music 音乐文件或专有 SDK 副本。
 `backend/fixtures` 是自动测试样例，不是可用于导航的服务数据。
 
 MOTO GPS 是独立开发项目，不代表 Waveshare、Garmin、Apple 或高德的官方产品、认证或背书。

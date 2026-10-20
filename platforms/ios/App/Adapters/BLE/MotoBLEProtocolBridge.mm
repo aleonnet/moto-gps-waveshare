@@ -247,7 +247,8 @@ moto::ble::ConnectionStatus PhoneConnectionStatus(
                         moto::ble::CapabilityMusicCommands |
                         moto::ble::CapabilityCommandAck |
                         moto::ble::CapabilityMapScene |
-                        moto::ble::CapabilityLocale;
+                        moto::ble::CapabilityLocale |
+                        moto::ble::CapabilityMapZoom;
   status.session_id = session_id;
   status.max_frame_size =
       static_cast<std::uint16_t>(storage->maximum_frame_size);
@@ -526,6 +527,26 @@ moto::ble::ConnectionStatus PhoneConnectionStatus(
   moto::ble::LocaleSelection locale;
   locale.language_tag = languageTag.UTF8String ?: "";
   const auto encoded = moto::ble::encode_message(moto::ble::Message{locale});
+  if (!encoded.ok()) {
+    if (error != nullptr) *error = ProtocolError(encoded.error, encoded.offset);
+    return nil;
+  }
+  return [NSData dataWithBytes:encoded.value.data() length:encoded.value.size()];
+}
+
+- (NSArray<NSData *> *)encodeMapZoom:(uint8_t)zoomLevel
+                                error:(NSError **)error {
+  auto *storage = static_cast<CodecStorage *>(_storage);
+  moto::ble::MapZoom zoom;
+  zoom.zoom_level = zoomLevel;
+  return EncodeMessage(storage, moto::ble::Message{zoom}, 0, error);
+}
+
+- (NSData *)encodeMapZoomPayloadForTesting:(uint8_t)zoomLevel
+                                     error:(NSError **)error {
+  moto::ble::MapZoom zoom;
+  zoom.zoom_level = zoomLevel;
+  const auto encoded = moto::ble::encode_message(moto::ble::Message{zoom});
   if (!encoded.ok()) {
     if (error != nullptr) *error = ProtocolError(encoded.error, encoded.offset);
     return nil;

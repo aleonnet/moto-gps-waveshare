@@ -173,6 +173,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSData *)encodeLocalePayloadForTesting:(NSString *)languageTag
                                              error:(NSError **)error;
 
+/// The round display's map scale: 15 (street) or 14 (twice the distance).
+- (nullable NSArray<NSData *> *)encodeMapZoom:(uint8_t)zoomLevel
+                                        error:(NSError **)error;
+
+/// Test hook for comparing the shared MapZoom payload with the golden fixture.
+- (nullable NSData *)encodeMapZoomPayloadForTesting:(uint8_t)zoomLevel
+                                              error:(NSError **)error;
+
 /// Test hook for checking the shared MapScene payload without duplicating its
 /// binary layout in Swift.
 - (nullable NSData *)encodeMapScenePayloadForTesting:(MotoBLEMapSceneInput *)scene

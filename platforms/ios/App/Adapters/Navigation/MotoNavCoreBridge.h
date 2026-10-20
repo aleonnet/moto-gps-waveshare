@@ -92,6 +92,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSArray<MotoNavCoreCommand *> *)cancelNavigation;
 - (NSArray<MotoNavCoreCommand *> *)setNetworkStateName:(NSString *)stateName;
 - (NSArray<MotoNavCoreCommand *> *)selectDisplayPageName:(NSString *)pageName;
+/// 15 or 14; NavCore ignores any other level.
+- (NSArray<MotoNavCoreCommand *> *)selectMapZoomLevel:(uint8_t)zoomLevel;
 - (NSArray<MotoNavCoreCommand *> *)pushFixLongitude:(double)longitudeDeg
                                            latitude:(double)latitudeDeg
                                           accuracyM:(double)accuracyM

@@ -6,8 +6,7 @@ final class MotoGPSUITests: XCTestCase {
     private var previousLocation: XCUILocation?
 
     func testLiveShanghaiCitySearchShowsDownloadCoverage() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         let maps = app.buttons["map-downloads-button"]
         XCTAssertTrue(maps.waitForExistence(timeout: 5))
         if !maps.isHittable { app.swipeUp() }
@@ -26,8 +25,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testMapDownloadsExposeCitySearchAndReturnHome() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         let maps = app.buttons["map-downloads-button"]
         XCTAssertTrue(maps.waitForExistence(timeout: 5))
         if !maps.isHittable { app.swipeUp() }
@@ -53,11 +51,20 @@ final class MotoGPSUITests: XCTestCase {
         XCUIDevice.shared.location = previousLocation
     }
 
-    private func refreshTestLocation() {
+    /// Every test talks to the offline test gateway (recorded answers on
+    /// localhost:8787), started by scripts/ios/run-ui-tests-with-test-gateway.sh.
+    private func launchApp(_ arguments: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--moto-test-gateway"] + arguments
+        app.launch()
+        return app
+    }
+
+    private func refreshTestLocation(latitude: Double = 36.6748039, longitude: Double = 117.1224488) {
         // Keep test location fresh across launches and appearance changes.
         // Production correctly rejects a cached fix older than 15 seconds.
         XCUIDevice.shared.location = XCUILocation(location: CLLocation(
-            coordinate: CLLocationCoordinate2D(latitude: 36.6748039, longitude: 117.1224488),
+            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
             altitude: 0,
             horizontalAccuracy: 5,
             verticalAccuracy: 5,
@@ -66,8 +73,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testDeviceDetailsPreserveDestinationSearch() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -125,8 +131,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testNearbyDestinationCanBeSelectedAndReturnsToRecentSearches() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -151,8 +156,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testSelectedRouteStartsNavigationAndEndsAtHome() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -195,8 +199,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testRoutePreviewSwipeRightReturnsToSearch() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -213,10 +216,12 @@ final class MotoGPSUITests: XCTestCase {
         let start = app.buttons["primary-navigation-action"]
         XCTAssertTrue(start.waitForExistence(timeout: 30))
 
-        // Standard iOS edge swipe-back: left edge → right.
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.4))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.4))
-        from.press(forDuration: 0.01, thenDragTo: to)
+        // Standard iOS edge swipe-back: left edge → right, below the route map
+        // (about 30-63% of the height), which would take the drag as a pan.
+        // A short hold lets the edge gesture claim the touch before the list does.
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.75))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.75))
+        from.press(forDuration: 0.1, thenDragTo: to, withVelocity: .fast, thenHoldForDuration: 0)
 
         XCTAssertTrue(app.staticTexts["recent-places-header"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["destination-search-field"].exists)
@@ -226,8 +231,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testRoutePreviewSystemBackReturnsToSearch() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -248,8 +252,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testBuiltInNavigationDemoStarts() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let demo = app.buttons["demo-navigation-button"]
         XCTAssertTrue(demo.waitForExistence(timeout: 5))
@@ -263,8 +266,7 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     func testEndingDemoNavigationReturnsToHome() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let demo = app.buttons["demo-navigation-button"]
         XCTAssertTrue(demo.waitForExistence(timeout: 5))
@@ -281,11 +283,59 @@ final class MotoGPSUITests: XCTestCase {
         XCTAssertFalse(end.exists)
     }
 
+    /// Outside mainland China the gateway answers through Geoapify; the
+    /// recorded Sao Paulo search and motorcycle route reach the same preview.
+    func testSaoPauloDestinationPlansARouteOutsideChina() throws {
+        refreshTestLocation(latitude: -23.5505, longitude: -46.6333)
+        let app = launchApp()
+
+        let search = app.textFields["destination-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Ibirapuera")
+
+        let firstResult = app.buttons["place-result-0"]
+        XCTAssertTrue(firstResult.waitForExistence(timeout: 15))
+        refreshTestLocation(latitude: -23.5505, longitude: -46.6333)
+        firstResult.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["route-preview-map"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["route-option-0"].exists)
+        XCTAssertFalse(app.buttons["route-option-1"].exists, "Geoapify plans one honest candidate")
+        let start = app.buttons["primary-navigation-action"]
+        XCTAssertTrue(start.waitForExistence(timeout: 3))
+        XCTAssertTrue(start.isEnabled)
+        keepScreenshot(of: app, named: "MOTO GPS route preview — Sao Paulo via Geoapify")
+    }
+
+    /// The rider switches the round display between the street scale and
+    /// twice the distance; the second tap restores the first scale.
+    func testMapZoomToggleSwitchesAndRestoresTheRoundDisplayScale() throws {
+        let app = launchApp()
+        let demo = app.buttons["demo-navigation-button"]
+        XCTAssertTrue(demo.waitForExistence(timeout: 5))
+        demo.tap()
+        XCTAssertTrue(app.buttons["end-navigation-action"].waitForExistence(timeout: 15))
+
+        let toggle = app.buttons["map-zoom-toggle"]
+        for _ in 0 ..< 4 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        let initial = toggle.value as? String
+        toggle.tap()
+        let switched = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", initial ?? ""), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [switched], timeout: 3), .completed)
+        keepScreenshot(of: app, named: "MOTO GPS round display zoom switched")
+        toggle.tap()
+        let restored = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", initial ?? ""), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 3), .completed)
+    }
+
     /// Keeps a real route-preview screenshot in the test result so layout
     /// regressions are reviewable without changing the app's runtime behavior.
     func testRoutePreviewVisualState() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let search = app.textFields["destination-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -325,9 +375,7 @@ final class MotoGPSUITests: XCTestCase {
         device.appearance = appearance
         defer { device.appearance = previousAppearance }
 
-        let app = XCUIApplication()
-        app.launchArguments = arguments
-        app.launch()
+        let app = launchApp(arguments)
         // XCTest may reset appearance while it launches the application.
         // Apply it to the live scene as well, then capture the rendered result.
         device.appearance = appearance

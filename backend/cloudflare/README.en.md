@@ -45,8 +45,8 @@ npm run dev
 ```
 
 On Windows PowerShell, use `Copy-Item .dev.vars.example .dev.vars`; the npm commands are the same.
-Open `http://localhost:8787/healthz`. The example uses **fixture mode**: synthetic routes, empty place
-results and `ready_for_live_navigation=false`, without contacting AMap or online maps.
+Open `http://localhost:8787/healthz`. The example uses **fixture mode**: recorded AMap (synthetic) and
+Geoapify answers and `ready_for_live_navigation=false`, without contacting AMap, Geoapify or online maps.
 `.dev.vars` is local only; it does not configure the deployed Worker.
 
 ## 2. Create R2 and configure the Worker
@@ -68,8 +68,9 @@ Edit `vars` in `wrangler.jsonc`:
 
 | Setting | Purpose |
 | --- | --- |
-| `MOTO_PROVIDER` | Set to `amap` for live navigation; default `disabled`; `fixture` is for demos/tests only |
-| `MOTO_MAP_PMTILES_URL` | `auto` selects a completed Protomaps build; alternatively a trusted HTTPS `.pmtiles` URL or `disabled` |
+| `MOTO_PROVIDER` | Set to `amap` (AMap everywhere) or `regional` (AMap in mainland China, Geoapify elsewhere) for live navigation; default `disabled`; `fixture` is for demos/tests only |
+| `MOTO_DEFAULT_REGION` | In `regional` mode, the region for a search with neither a position nor a client country: `global` (default) or `china` |
+| `MOTO_MAP_PMTILES_URL` | `auto` selects a completed Protomaps build; alternatively a trusted HTTPS `.pmtiles` URL, `protomaps-api` (the hosted API, needs `PROTOMAPS_API_KEY`) or `disabled` |
 | `WEB_ORIGIN` | Allowed website origin, e.g. `https://nav.example.com`; use an empty string for native-app-only use |
 | `MOTO_BASE_PATH` | Empty by default, exposing `/v1/...`; `/moto-gps/api` exposes `/moto-gps/api/v1/...`; no trailing slash |
 
@@ -81,6 +82,10 @@ Set your AMap **Web Service key**:
 
 ```sh
 npx wrangler secret put AMAP_WEB_SERVICE_KEY
+# regional mode also needs:
+npx wrangler secret put GEOAPIFY_API_KEY
+# with the protomaps-api map source:
+npx wrangler secret put PROTOMAPS_API_KEY
 ```
 
 Paste it at the prompt. Never put it in `wrangler.jsonc`, Git or an Issue. Live mode without a key returns
@@ -150,6 +155,8 @@ against the actual workload.
 - Automatic map metadata refreshes daily. Cached tiles return first, with stale data refreshed using
   `waitUntil`. Cron runs at 03:17 UTC. A source outage with no cached tile returns 503, never invented roads;
   existing cached tiles remain usable.
+- In `regional` mode the Worker fills `X-Client-Country` from Cloudflare's `request.cf.country`,
+  overwriting any header of that name sent by the client; position-free searches choose a provider by it.
 - R2 errors do not expose secrets. If a cache write fails, the retrieved real tile may still be returned,
   but a later request may have to fetch it again.
 - Cloudflare per-IP limits are 30 route, 60 place, 30 city and 600 tile requests per minute.
