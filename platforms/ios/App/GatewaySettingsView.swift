@@ -5,7 +5,7 @@ struct GatewaySettingsView: View {
     @ObservedObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var address = ""
-    @State private var message: String?
+    @State private var message: AppMessage?
     @State private var isChecking = false
     @State private var checkTask: Task<Void, Never>?
 
@@ -13,58 +13,58 @@ struct GatewaySettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("https://你的网关地址/", text: $address, axis: .vertical)
+                    TextField(L("https://your-gateway/"), text: $address, axis: .vertical)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .accessibilityIdentifier("gateway-address-field")
                         .disabled(model.isUpdatingGateway)
                 } header: {
-                    Text("网关地址")
+                    Text(L("Gateway address"))
                 } footer: {
-                    Text("填写完整的 HTTPS 根地址。例如 https://nav.example.com/moto-gps/api/，不要填高德 Key。")
+                    Text(L("Enter the full HTTPS root address, for example https://nav.example.com/moto-gps/api/. Do not enter the AMap key."))
                 }
                 Section {
                     Button {
                         checkConnection()
                     } label: {
                         HStack {
-                            Text("测试连接")
+                            Text(L("Test connection"))
                             if isChecking { Spacer(); ProgressView() }
                         }
                     }
                     .disabled(isChecking || model.isUpdatingGateway || address.isEmpty)
                     .accessibilityIdentifier("gateway-check-button")
                     if let message {
-                        Text(message).foregroundStyle(.secondary)
+                        Text(message.text).foregroundStyle(.secondary)
                             .accessibilityIdentifier("gateway-status-message")
                     }
                 } footer: {
-                    Text("连接测试只检查网关状态；真实搜索、导航和地图还需要相应服务可用。")
+                    Text(L("The test only checks the gateway status; real search, navigation and maps also need their services to be available."))
                 }
                 Section {
-                    Text("保存后立即生效，无需重新安装。更换地址会清空当前搜索并暂停地图下载，已下载的地图仍会保留。")
-                    Text("地点、路线和定位请求将发送到这个地址，请使用你信任的网关。")
+                    Text(L("Saving takes effect immediately, without reinstalling. Changing the address clears the current search and pauses map downloads; downloaded maps are kept."))
+                    Text(L("Place, route and location requests are sent to this address. Use a gateway you trust."))
                 }
                 if model.isNavigationActive {
-                    Section { Text("请先结束导航，再更换网关地址。") }
+                    Section { Text(L("End navigation before changing the gateway address.")) }
                 }
             }
-            .navigationTitle("网关设置")
+            .navigationTitle(L("Gateway settings"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }.disabled(model.isUpdatingGateway)
+                    Button(L("Cancel")) { dismiss() }.disabled(model.isUpdatingGateway)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button(L("Save")) {
                         checkTask?.cancel()
                         isChecking = false
                         Task {
                             do {
                                 try await model.saveGatewayAddress(address)
                                 dismiss()
-                            } catch { message = error.localizedDescription }
+                            } catch { message = .error(error) }
                         }
                     }
                     .disabled(model.isNavigationActive || model.isUpdatingGateway || address.isEmpty)
@@ -87,7 +87,7 @@ struct GatewaySettingsView: View {
         message = nil
         let url: URL
         do { url = try GatewayConfiguration.normalizedURL(address) }
-        catch { message = error.localizedDescription; return }
+        catch { message = .error(error); return }
         isChecking = true
         checkTask = Task { @MainActor in
             defer { if !Task.isCancelled { isChecking = false } }
@@ -111,12 +111,14 @@ struct GatewaySettingsView: View {
                 let health = try JSONDecoder().decode(Health.self, from: data)
                 guard health.status == "ok" else { throw URLError(.badServerResponse) }
                 try Task.checkCancellation()
-                message = health.ready_for_live_navigation
-                    ? "网关已连接，已启用实时导航配置。"
-                    : "网关已连接，但尚未启用实时导航。请检查服务端配置。"
+                if health.ready_for_live_navigation {
+                    message = .localized("Gateway connected; live navigation is configured.")
+                } else {
+                    message = .localized("Gateway connected, but live navigation is not configured yet. Check the server configuration.")
+                }
             } catch {
                 guard !Task.isCancelled else { return }
-                message = "连接失败，请检查地址、HTTPS 证书和网关是否已启动。"
+                message = .localized("Connection failed. Check the address, the HTTPS certificate and that the gateway is running.")
             }
         }
     }

@@ -206,6 +206,7 @@ final class ESP32BLECentral: NSObject {
     /// one run-loop turn.
     private static let writeWithoutResponsePacingMs: UInt64 = 15
     private static let mapSceneCapability: UInt32 = 1 << 7
+    private static let localeCapability: UInt32 = 1 << 8
 
     private struct RouteGeometrySignature: Equatable {
         let routeID: String
@@ -228,6 +229,7 @@ final class ESP32BLECentral: NSObject {
     private var pendingNavigationState: MotoNavCoreSnapshot?
     private var pendingMediaState: PhoneMediaState?
     private var pendingMapScene: OfflineMapSceneWindow?
+    private var pendingLanguageTag: String?
     private var mapSceneDelivery = BLEMapSceneDelivery()
     private var mapSceneFinalFrame: Data?
     private var shouldMaintainConnection = false
@@ -318,6 +320,13 @@ final class ESP32BLECentral: NSObject {
         flushPendingMediaState()
     }
 
+    /// Keeps the app language and repeats it at every new session, so the
+    /// round display always follows the phone's interface language.
+    func sendLanguage(_ languageTag: String) {
+        pendingLanguageTag = languageTag
+        flushPendingLanguage()
+    }
+
     /// Map scenes are sparse, low-frequency replacements.  Retain only the
     /// newest local window while disconnected or while a prior write drains.
     func sendMapScene(_ scene: OfflineMapSceneWindow) {
@@ -398,7 +407,7 @@ final class ESP32BLECentral: NSObject {
             // A stale retrievePeripherals result can otherwise remain pending
             // indefinitely and prevent discovery of a replacement device.
             UserDefaults.standard.removeObject(forKey: Self.knownPeripheralKey)
-            self.recoverFromTransportError("连接设备超时，正在重新扫描")
+            self.recoverFromTransportError("connection timed out; scanning again")
         }
     }
 
@@ -448,7 +457,7 @@ final class ESP32BLECentral: NSObject {
                   self.shouldMaintainConnection,
                   self.codec == nil
             else { return }
-            self.recoverFromTransportError("恢复圆屏服务超时，正在重新连接")
+            self.recoverFromTransportError("restoring the display service timed out; reconnecting")
         }
     }
 
@@ -473,7 +482,7 @@ final class ESP32BLECentral: NSObject {
               let tx = characteristics.first(where: { $0.uuid == Self.deviceToPhoneUUID }),
               tx.properties.contains(.notify)
         else {
-            recoverFromTransportError("设备 BLE 特征或权限与 v1 不匹配")
+            recoverFromTransportError("device BLE characteristics or permissions do not match v1")
             return
         }
 
@@ -530,7 +539,7 @@ final class ESP32BLECentral: NSObject {
 
     private func acceptDeviceReady(_ value: MotoBLEConnectionStatus) {
         guard var handshake, let codec else {
-            recoverFromTransportError("设备在握手开始前发送了状态")
+            recoverFromTransportError("device sent a status before the handshake started")
             return
         }
 
@@ -574,6 +583,9 @@ final class ESP32BLECentral: NSObject {
                 snapshot.negotiatedProtocol = "V1"
                 lastValidDeviceFrameAtMs = Self.monotonicMs()
                 startHeartbeat()
+                // Language first: the display then draws the next snapshot
+                // already in the new language.
+                flushPendingLanguage()
                 if let pendingNavigationState {
                     sendNavigationSnapshot(pendingNavigationState)
                 }
@@ -614,7 +626,7 @@ final class ESP32BLECentral: NSObject {
                   self.handshake?.stage == expectedStage,
                   !self.protocolReady
             else { return }
-            self.recoverFromTransportError("BLE v1 握手超时，正在重新连接")
+            self.recoverFromTransportError("BLE v1 handshake timed out; reconnecting")
         }
     }
 
@@ -870,6 +882,20 @@ final class ESP32BLECentral: NSObject {
         }
     }
 
+    private func flushPendingLanguage() {
+        guard protocolReady,
+              peerCapabilities & Self.localeCapability != 0,
+              let codec,
+              let languageTag = pendingLanguageTag
+        else { return }
+
+        do {
+            try send(codec.encodeLocaleSelection(languageTag))
+        } catch {
+            recoverFromTransportError(error.localizedDescription)
+        }
+    }
+
     private func flushPendingMapScene() {
         guard protocolReady,
               peerCapabilities & Self.mapSceneCapability != 0,
@@ -1026,14 +1052,14 @@ final class ESP32BLECentral: NSObject {
                 if self.lastValidDeviceFrameAtMs > 0,
                    now > self.lastValidDeviceFrameAtMs + self.deviceHeartbeatTimeoutMs
                 {
-                    self.recoverFromTransportError("设备心跳超时，正在重连")
+                    self.recoverFromTransportError("device heartbeat timed out; reconnecting")
                     return
                 }
 
                 do {
                     self.mapSceneDelivery.expire(nowMs: now)
                     if self.mapSceneDelivery.timeoutCount >= 3 {
-                        self.recoverFromTransportError("周边地图传输未确认，正在重新连接")
+                        self.recoverFromTransportError("map scene delivery was not acknowledged; reconnecting")
                         return
                     }
                     try self.send(
@@ -1257,7 +1283,7 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         peripheral.delegate = nil
         self.peripheral = nil
         snapshot.connection = shouldMaintainConnection
-            ? .failed(message: error?.localizedDescription ?? "无法连接设备")
+            ? .failed(message: error?.localizedDescription ?? "could not connect to the device")
             : .idle
         scheduleReconnect()
     }
@@ -1275,7 +1301,7 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         peripheral.delegate = nil
         self.peripheral = nil
         snapshot.connection = shouldMaintainConnection
-            ? .failed(message: error?.localizedDescription ?? "设备连接已断开，等待重连")
+            ? .failed(message: error?.localizedDescription ?? "device disconnected; waiting to reconnect")
             : .idle
         scheduleReconnect()
     }
@@ -1290,7 +1316,7 @@ extension ESP32BLECentral: @preconcurrency CBPeripheralDelegate {
             return
         }
         guard let service = peripheral.services?.first(where: { $0.uuid == Self.serviceUUID }) else {
-            recoverFromTransportError("设备缺少 MOTO GPS 导航服务")
+            recoverFromTransportError("device has no MOTO GPS navigation service")
             return
         }
         trace("navigation service discovered")
@@ -1334,7 +1360,7 @@ extension ESP32BLECentral: @preconcurrency CBPeripheralDelegate {
             return
         }
         guard characteristic.isNotifying, phoneToDeviceCharacteristic != nil else {
-            recoverFromTransportError("设备通知订阅没有生效")
+            recoverFromTransportError("device notification subscription did not take effect")
             return
         }
         finishProtocolSetup(for: peripheral)
@@ -1417,7 +1443,7 @@ extension ESP32BLECentral: @preconcurrency CBPeripheralDelegate {
                                                 status: ack.status) {
                     trace("map acknowledged sequence=\(ack.acknowledgedSequence) status=\(ack.status)")
                     if mapSceneDelivery.timeoutCount >= 3 {
-                        recoverFromTransportError("周边地图连续接收失败，正在重新连接")
+                        recoverFromTransportError("map scene delivery failed repeatedly; reconnecting")
                         return
                     }
                     flushPendingMapScene()

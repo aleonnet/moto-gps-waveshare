@@ -6,7 +6,9 @@ import MotoNavigationCore
 @MainActor
 final class SharedNavigationRuntime {
     var onSnapshot: ((MotoNavCoreSnapshot) -> Void)?
-    var onFailure: ((String) -> Void)?
+    /// Errors are passed on untranslated; the view shows them in the language
+    /// in use (AppMessage).
+    var onFailure: ((any Error) -> Void)?
 
     private let bridge = MotoNavCoreBridge()
     private let locationSource: any NavigationLocationSource
@@ -51,10 +53,10 @@ final class SharedNavigationRuntime {
         do {
             try locationSource.start(
                 onFix: { [weak self] fix in self?.accept(fix) },
-                onFailure: { [weak self] message in self?.onFailure?(message) }
+                onFailure: { [weak self] error in self?.onFailure?(error) }
             )
         } catch {
-            onFailure?(error.localizedDescription)
+            onFailure?(error)
             self.destinationPOIID = nil
             publish(bridge.cancelNavigation())
             return false
@@ -202,7 +204,7 @@ final class SharedNavigationRuntime {
                         receivedAtMs: Self.nowMs()
                     ) ?? []
                 )
-                self?.onFailure?(error.localizedDescription)
+                self?.onFailure?(error)
             }
         }
     }

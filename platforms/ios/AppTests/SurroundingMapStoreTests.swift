@@ -69,7 +69,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         let second = MapTileID(x: 2, y: 2)
         let loader = MapTileTestLoader(failingTile: second)
         let cache = MapTileCache(root: root, loader: { try await loader.load($0) })
-        let id = try await cache.createPack(name: "测试路线", detail: "路线走廊", tiles: [first, second])
+        let id = try await cache.createPack(label: .route(destination: "Test route"), tiles: [first, second])
         _ = try await cache.fetch(first, refresh: false)
         do {
             _ = try await cache.fetch(second, refresh: false)
@@ -93,8 +93,8 @@ final class SurroundingMapStoreTests: XCTestCase {
         let cache = MapTileCache(root: root, loader: { try mapTileTestData($0) })
         let shared = MapTileID(x: 1, y: 2)
         let temporary = MapTileID(x: 3, y: 2)
-        let first = try await cache.createPack(name: "城市", detail: "区域", tiles: [shared])
-        let second = try await cache.createPack(name: "路线", detail: "走廊", tiles: [shared])
+        let first = try await cache.createPack(label: .city(name: "City", scope: .city), tiles: [shared])
+        let second = try await cache.createPack(label: .route(destination: "Route"), tiles: [shared])
         _ = try await cache.fetch(shared, refresh: false)
         _ = try await cache.fetch(temporary, refresh: true)
         try await cache.deletePack(id: first)
@@ -113,8 +113,8 @@ final class SurroundingMapStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let cache = MapTileCache(root: root, cacheTileLimit: 2, loader: { try mapTileTestData($0) })
         let pinned = MapTileID(x: 1, y: 2)
-        let first = try await cache.createPack(name: "城市", detail: "区域", tiles: [pinned])
-        let repeated = try await cache.createPack(name: "城市", detail: "区域更新", tiles: [pinned, pinned])
+        let first = try await cache.createPack(label: .city(name: "City", scope: .city), tiles: [pinned])
+        let repeated = try await cache.createPack(label: .city(name: "City", scope: .district), tiles: [pinned, pinned])
         XCTAssertEqual(first, repeated)
         _ = try await cache.fetch(pinned, refresh: true)
         for x in 2 ... 4 { _ = try await cache.fetch(MapTileID(x: x, y: 2), refresh: true) }
@@ -127,6 +127,28 @@ final class SurroundingMapStoreTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("tiles").path).count, 3)
     }
 
+    func testPacksSavedBeforeLocalizationKeepTheirWordsAndNewPacksStoreData() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        // The manifest format written by MOTO GPS 0.3.1: finished Chinese text.
+        let legacy = #"[{"id":"old","name":"前往济南西站","detail":"所选路线及沿途约一公里","tiles":[{"z":15,"x":1,"y":2}]}]"#
+        try Data(legacy.utf8).write(to: root.appendingPathComponent("packs.json"))
+        let cache = MapTileCache(root: root, loader: { try mapTileTestData($0) })
+        let packs = try await cache.packs()
+        XCTAssertEqual(packs.map(\.label), [.legacy(name: "前往济南西站", detail: "所选路线及沿途约一公里")])
+
+        _ = try await cache.createPack(label: .city(name: "Jinan", scope: .district),
+                                       tiles: [MapTileID(x: 3, y: 2)])
+        let manifest = try String(contentsOf: root.appendingPathComponent("packs.json"), encoding: .utf8)
+        // New packs keep the place name and a code, never interface words.
+        XCTAssertTrue(manifest.contains(#""kind":"city""#))
+        XCTAssertTrue(manifest.contains(#""scope":"district""#))
+        let reopened = try await MapTileCache(root: root, loader: { try mapTileTestData($0) }).packs()
+        XCTAssertEqual(reopened.map(\.label), [.legacy(name: "前往济南西站", detail: "所选路线及沿途约一公里"),
+                                               .city(name: "Jinan", scope: .district)])
+    }
+
     func testCorruptManifestIsQuarantinedAndDoesNotDisableOnlineFetch() async throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -137,10 +159,10 @@ final class SurroundingMapStoreTests: XCTestCase {
         let reopened = MapTileCache(root: root, loader: { try mapTileTestData($0) })
         let restored = try await reopened.cached(tile)
         let packs = try await reopened.packs()
-        let notice = await reopened.takeRecoveryNotice()
+        let recovered = await reopened.takeManifestRecovered()
         XCTAssertNotNil(restored)
         XCTAssertTrue(packs.isEmpty)
-        XCTAssertNotNil(notice)
+        XCTAssertTrue(recovered)
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path)
             .contains { $0.hasPrefix("packs.corrupt-") })
         _ = try await reopened.fetch(MapTileID(x: 3, y: 2), refresh: true)
@@ -151,7 +173,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let tile = MapTileID(x: 1, y: 2)
         let cache = MapTileCache(root: root, loader: { try mapTileTestData($0) })
-        _ = try await cache.createPack(name: "城市", detail: "区域", tiles: [tile])
+        _ = try await cache.createPack(label: .city(name: "City", scope: .city), tiles: [tile])
         _ = try await cache.fetch(tile, refresh: false)
         try Data("broken tile".utf8).write(to: root.appendingPathComponent("tiles").appendingPathComponent(tile.filename))
         let corrupt = try await cache.cached(tile)
@@ -170,7 +192,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         let second = MapTileID(x: 2, y: 2)
         let limit = Int64(try mapTileTestData(first).count + 10)
         let cache = MapTileCache(root: root, packLimit: limit, loader: { try mapTileTestData($0) })
-        _ = try await cache.createPack(name: "城市", detail: "区域", tiles: [first, second])
+        _ = try await cache.createPack(label: .city(name: "City", scope: .city), tiles: [first, second])
         _ = try await cache.fetch(first, refresh: false)
         do {
             _ = try await cache.fetch(second, refresh: false)
@@ -228,7 +250,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         }
         store.update(latitudeDeg: 40, longitudeDeg: -73)
         await fulfillment(of: [finished], timeout: 2)
-        XCTAssertEqual(store.statusText, "在线地图不可用 · 此处无离线地图")
+        XCTAssertEqual(store.status, .unavailable)
         store.reset()
     }
 
@@ -253,7 +275,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         await fulfillment(of: [finished], timeout: 2)
         let finalRequestCount = await loader.calls
         XCTAssertEqual(finalRequestCount, cachedRequestCount)
-        XCTAssertEqual(store.statusText, "周边地图已就绪 · 使用缓存")
+        XCTAssertEqual(store.status, .readyFromCache)
         store.reset()
     }
 
@@ -278,7 +300,7 @@ final class SurroundingMapStoreTests: XCTestCase {
         }
         store.update(latitudeDeg: 40, longitudeDeg: -73)
         await fulfillment(of: [finished], timeout: 2)
-        XCTAssertEqual(store.statusText, "离线地图 · 当前区域已缓存")
+        XCTAssertEqual(store.status, .offlineCached)
         store.reset()
     }
 }

@@ -1,12 +1,25 @@
 import CoreLocation
 import MotoNavigationCore
 
+/// Permission failures reported while navigating; the text is read when shown.
+enum LocationPermissionError: LocalizedError {
+    case off
+    case unconfirmed
+
+    var errorDescription: String? {
+        switch self {
+        case .off: L("Location access is off. Allow “Always” location in Settings.")
+        case .unconfirmed: L("This system cannot confirm the location permission")
+        }
+    }
+}
+
 @MainActor
 final class CoreLocationNavigationSource: NSObject, NavigationLocationSource {
     private static let maximumFixAgeS: TimeInterval = 15
     private let manager = CLLocationManager()
     private var onFix: (@MainActor (NavigationFix) -> Void)?
-    private var onFailure: (@MainActor (String) -> Void)?
+    private var onFailure: (@MainActor (any Error) -> Void)?
     private var wantsUpdates = false
 
     override init() {
@@ -29,7 +42,7 @@ final class CoreLocationNavigationSource: NSObject, NavigationLocationSource {
 
     func start(
         onFix: @escaping @MainActor (NavigationFix) -> Void,
-        onFailure: @escaping @MainActor (String) -> Void
+        onFailure: @escaping @MainActor (any Error) -> Void
     ) throws {
         self.onFix = onFix
         self.onFailure = onFailure
@@ -46,7 +59,7 @@ final class CoreLocationNavigationSource: NSObject, NavigationLocationSource {
         case .restricted, .denied:
             throw NavigationSourceError.permissionDenied
         @unknown default:
-            throw NavigationSourceError.unavailable("当前系统无法确认定位权限")
+            throw LocationPermissionError.unconfirmed
         }
     }
 
@@ -65,11 +78,11 @@ extension CoreLocationNavigationSource: @preconcurrency CLLocationManagerDelegat
         case .authorizedAlways, .authorizedWhenInUse:
             manager.startUpdatingLocation()
         case .restricted, .denied:
-            onFailure?("定位权限已关闭，请在系统设置中允许“始终”定位")
+            onFailure?(LocationPermissionError.off)
         case .notDetermined:
             break
         @unknown default:
-            onFailure?("当前系统无法确认定位权限")
+            onFailure?(LocationPermissionError.unconfirmed)
         }
     }
 
@@ -103,6 +116,6 @@ extension CoreLocationNavigationSource: @preconcurrency CLLocationManagerDelegat
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         let locationError = error as? CLError
         if locationError?.code == .locationUnknown { return }
-        onFailure?(error.localizedDescription)
+        onFailure?(error)
     }
 }

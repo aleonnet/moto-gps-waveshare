@@ -20,13 +20,103 @@ struct MapTileID: Codable, Hashable, Sendable {
     var filename: String { "\(z)-\(x)-\(y).json" }
 }
 
+/// The area a city search result covers, as reported by the gateway.
+enum MapAreaScope: String, Codable, Sendable {
+    case city, district
+
+    var text: String {
+        switch self {
+        case .city: L("Whole city")
+        case .district: L("District")
+        }
+    }
+}
+
+/// What a saved pack covers. Names are the user's data (a city or a
+/// destination); the words around them are produced when displayed, so a
+/// saved pack follows the interface language.
+enum MapPackLabel: Equatable, Sendable {
+    case city(name: String, scope: MapAreaScope)
+    case route(destination: String?)
+    /// Packs saved before localization kept finished text; shown as saved.
+    case legacy(name: String, detail: String)
+
+    var title: String {
+        switch self {
+        case let .city(name, _): name
+        case let .route(destination): L("To \(destination ?? L("destination"))")
+        case let .legacy(name, _): name
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case let .city(_, scope): scope.text
+        case .route: L("Selected route and about one kilometre around it")
+        case let .legacy(_, detail): detail
+        }
+    }
+}
+
 struct MapDownloadPack: Identifiable, Equatable, Sendable {
     let id: String
-    let name: String
-    let detail: String
+    let label: MapPackLabel
     let byteCount: Int64
     let tileCount: Int
-    let isComplete: Bool
+    let downloadedPercent: Int
+    var isComplete: Bool { downloadedPercent == 100 }
+
+    var detail: String {
+        isComplete ? label.detail : L("\(label.detail) · \(downloadedPercent)% downloaded")
+    }
+}
+
+/// Surrounding-map state; the text is produced when displayed.
+enum SurroundingMapStatus: Equatable, Sendable {
+    case standby, noMapHere, updatingCached, loadingOnline, readyFromCache, online
+    case offlineCached, offlinePartial, unavailable
+
+    var text: String {
+        switch self {
+        case .standby: L("Online maps first, offline maps as backup")
+        case .noMapHere: L("No surrounding map for this location yet")
+        case .updatingCached: L("Updating · Surroundings cached")
+        case .loadingOnline: L("Loading the online surroundings")
+        case .readyFromCache: L("Surrounding map ready · From cache")
+        case .online: L("Online surrounding map")
+        case .offlineCached: L("Offline map · This area is cached")
+        case .offlinePartial: L("Offline map · This area is only partly covered")
+        case .unavailable: L("Online map unavailable · No offline map here")
+        }
+    }
+}
+
+/// Download progress and results; the text, reasons included, is produced
+/// when displayed.
+enum MapDownloadMessage {
+    case preparing
+    case progress(bytes: Int64, percent: Int)
+    case complete, paused, cacheCleared, manifestRecovered
+    case pausedAfterError(any Error)
+    case readFailed(any Error)
+    case failure(any Error)
+
+    var text: String {
+        switch self {
+        case .preparing: L("Preparing the download…")
+        case let .progress(bytes, percent):
+            L("\(NavFormatting.byteCount(bytes)) downloaded · \(percent)%")
+        case .complete: L("Download complete, available offline")
+        case .paused: L("Download paused; you can resume it")
+        case .cacheCleared: L("Temporary cache cleared; downloaded maps kept")
+        case .manifestRecovered:
+            L("The offline map list was damaged; the original file was kept. Add the areas you need again.")
+        case let .pausedAfterError(error):
+            L("Download paused: \(localizedMessage(for: error)). The finished part was kept.")
+        case let .readFailed(error): L("Could not read the offline maps: \(localizedMessage(for: error))")
+        case let .failure(error): localizedMessage(for: error)
+        }
+    }
 }
 
 enum SurroundingMapError: LocalizedError {
@@ -35,13 +125,14 @@ enum SurroundingMapError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidTile: return "地图区域无效"
-        case .invalidResponse: return "地图数据格式无效"
-        case .responseTooLarge: return "地图分块超过大小限制"
-        case .storageLimit: return "离线地图已达到 512 MB 上限，请删除不用的区域"
-        case .tooManyTiles: return "下载区域过大，请缩小城市区域或路线范围"
-        case .missingPack: return "未找到这份离线地图"
-        case .httpStatus(let status): return status == 429 ? "地图服务繁忙，请稍后继续" : "地图服务暂时不可用"
+        case .invalidTile: return L("Invalid map area")
+        case .invalidResponse: return L("Invalid map data")
+        case .responseTooLarge: return L("A map tile exceeds the size limit")
+        case .storageLimit: return L("Offline maps reached the 512 MB limit; delete areas you no longer need")
+        case .tooManyTiles: return L("The download area is too large; choose a smaller city area or route")
+        case .missingPack: return L("This offline map was not found")
+        case .httpStatus(let status):
+            return status == 429 ? L("The map service is busy; continue later") : L("The map service is unavailable right now")
         }
     }
 }
@@ -100,9 +191,35 @@ actor MapTileCache {
     typealias Loader = @Sendable (MapTileID) async throws -> Data
     private struct SavedPack: Codable {
         let id: String
-        let name: String
-        let detail: String
+        /// City or destination name (user data); nil for a route without one.
+        let name: String?
+        /// Present only in packs saved before localization.
+        let detail: String?
+        /// "city" or "route"; nil in packs saved before localization.
+        let kind: String?
+        let scope: MapAreaScope?
         let tiles: [MapTileID]
+
+        init(id: String, label: MapPackLabel, tiles: [MapTileID]) {
+            self.id = id
+            self.tiles = tiles
+            switch label {
+            case let .city(name, scope):
+                (self.name, detail, kind, self.scope) = (String(name.prefix(120)), nil, "city", scope)
+            case let .route(destination):
+                (name, detail, kind, scope) = (destination.map { String($0.prefix(120)) }, nil, "route", nil)
+            case let .legacy(name, detail):
+                (self.name, self.detail, kind, scope) = (name, detail, nil, nil)
+            }
+        }
+
+        var label: MapPackLabel {
+            switch kind {
+            case "city": .city(name: name ?? "", scope: scope ?? .city)
+            case "route": .route(destination: name)
+            default: .legacy(name: name ?? "", detail: detail ?? "")
+            }
+        }
     }
 
     private let root: URL
@@ -125,7 +242,7 @@ actor MapTileCache {
     private var temporaryCount = 0
     private var writeEpochs: [MapTileID: UInt64] = [:]
     private var nextBulkRequestAt = Date.distantPast
-    private var recoveryNotice: String?
+    private var manifestRecovered = false
 
     init(root: URL, cacheLimit: Int64 = 128 * 1_024 * 1_024, cacheTileLimit: Int = 10_000,
          packLimit: Int64 = 512 * 1_024 * 1_024, loader: @escaping Loader) {
@@ -161,7 +278,7 @@ actor MapTileCache {
                 try FileManager.default.moveItem(at: manifestURL,
                     to: root.appendingPathComponent("packs.corrupt-\(UUID().uuidString).json"))
                 savedPacks = []
-                recoveryNotice = "离线地图清单损坏，已保留原文件。请重新添加需要的下载区域。"
+                manifestRecovered = true
             }
         }
         for url in try FileManager.default.contentsOfDirectory(
@@ -280,9 +397,9 @@ actor MapTileCache {
 
     func byteCount(of tile: MapTileID) -> Int64 { files[tile]?.size ?? 0 }
 
-    func takeRecoveryNotice() -> String? {
-        defer { recoveryNotice = nil }
-        return recoveryNotice
+    func takeManifestRecovered() -> Bool {
+        defer { manifestRecovered = false }
+        return manifestRecovered
     }
 
     private func write(_ data: Data, tile: MapTileID) throws {
@@ -296,22 +413,22 @@ actor MapTileCache {
         try trimTemporaryCache()
     }
 
-    func createPack(name: String, detail: String, tiles: [MapTileID]) throws -> String {
+    func createPack(label: MapPackLabel, tiles: [MapTileID]) throws -> String {
         try initialize()
         let unique = Array(Set(tiles)).sorted { $0.filename < $1.filename }
         guard !unique.isEmpty, unique.allSatisfy(\.isValid) else { throw SurroundingMapError.invalidTile }
-        let normalizedName = String(name.prefix(120))
-        if let existing = savedPacks.first(where: { $0.name == normalizedName && $0.tiles == unique }) {
+        let candidate = SavedPack(id: UUID().uuidString, label: label, tiles: unique)
+        if let existing = savedPacks.first(where: {
+            $0.kind == candidate.kind && $0.name == candidate.name && $0.tiles == unique
+        }) {
             return existing.id
         }
         let allPinned = pinnedTiles.union(unique)
         guard allPinned.count <= 40_000 else { throw SurroundingMapError.tooManyTiles }
         let total = allPinned.reduce(Int64(0)) { $0 + (files[$1]?.size ?? 0) }
         guard total <= packLimit else { throw SurroundingMapError.storageLimit }
-        let pack = SavedPack(id: UUID().uuidString, name: normalizedName,
-                             detail: String(detail.prefix(400)), tiles: unique)
-        try saveManifest(savedPacks + [pack])
-        return pack.id
+        try saveManifest(savedPacks + [candidate])
+        return candidate.id
     }
 
     func tiles(for id: String) throws -> [MapTileID] {
@@ -329,11 +446,10 @@ actor MapTileCache {
                 let size = files[tile]?.size ?? 0
                 if size > 0 { count += 1; bytes += size }
             }
-            return MapDownloadPack(id: pack.id, name: pack.name,
-                                   detail: count == pack.tiles.count ? pack.detail :
-                                    "\(pack.detail) · 已下载 \(Int(Double(count) / Double(pack.tiles.count) * 100))%",
-                                   byteCount: bytes, tileCount: pack.tiles.count,
-                                   isComplete: count == pack.tiles.count)
+            let percent = count == pack.tiles.count ? 100
+                : min(99, Int(Double(count) / Double(pack.tiles.count) * 100))
+            return MapDownloadPack(id: pack.id, label: pack.label, byteCount: bytes,
+                                   tileCount: pack.tiles.count, downloadedPercent: percent)
         }
     }
 
@@ -379,10 +495,10 @@ actor MapTileCache {
 
 @MainActor
 final class SurroundingMapStore: ObservableObject {
-    @Published private(set) var statusText = "在线地图优先，离线地图备用"
+    @Published private(set) var status = SurroundingMapStatus.standby
     @Published private(set) var isDownloading = false
     @Published private(set) var downloadProgress = 0.0
-    @Published private(set) var downloadMessage: String?
+    @Published private(set) var downloadMessage: MapDownloadMessage?
     @Published private(set) var packs: [MapDownloadPack] = []
     var onScene: ((OfflineMapSceneWindow) -> Void)?
 
@@ -431,7 +547,7 @@ final class SurroundingMapStore: ObservableObject {
                 throw SurroundingMapError.invalidTile
             }
         } catch {
-            statusText = "此位置暂时没有周边地图"
+            status = .noMapHere
             return
         }
         lastOrigin = origin
@@ -451,8 +567,7 @@ final class SurroundingMapStore: ObservableObject {
             guard !Task.isCancelled, self.generation == current else { return }
             self.emit(documents: Array(documents.values), origin: origin,
                       includeFallback: documents.count != tiles.count)
-            self.statusText = documents.count == tiles.count
-                ? "正在更新 · 已缓存周边地图" : "正在加载在线周边地图"
+            self.status = documents.count == tiles.count ? .updatingCached : .loadingOnline
             var failed = false
             // A small viewport normally touches 4–9 tiles. Bounded concurrency
             // keeps navigation and user-initiated downloads responsive.
@@ -477,12 +592,11 @@ final class SurroundingMapStore: ObservableObject {
             let complete = documents.count == tiles.count
             let hasOfflineGeometry = self.emit(documents: Array(documents.values), origin: origin, includeFallback: !complete)
             if !failed && complete {
-                self.statusText = needsRefresh.isEmpty ? "周边地图已就绪 · 使用缓存" : "在线周边地图"
+                self.status = needsRefresh.isEmpty ? .readyFromCache : .online
                 self.retryAfter = Date().addingTimeInterval(24 * 60 * 60)
             } else {
                 self.retryAfter = Date().addingTimeInterval(30)
-                self.statusText = complete ? "离线地图 · 当前区域已缓存" :
-                    (hasOfflineGeometry ? "离线地图 · 当前区域仅部分覆盖" : "在线地图不可用 · 此处无离线地图")
+                self.status = complete ? .offlineCached : (hasOfflineGeometry ? .offlinePartial : .unavailable)
             }
             await self.reloadPacks()
         }
@@ -500,12 +614,12 @@ final class SurroundingMapStore: ObservableObject {
         sceneTask = nil
         lastOrigin = nil
         retryAfter = nil
-        statusText = "在线地图优先，离线地图备用"
+        status = .standby
     }
 
-    func download(name: String, detail: String, tiles: [MapTileID]) {
+    func download(_ label: MapPackLabel, tiles: [MapTileID]) {
         startDownload {
-            try await self.cache.createPack(name: name, detail: detail, tiles: tiles)
+            try await self.cache.createPack(label: label, tiles: tiles)
         }
     }
 
@@ -519,7 +633,7 @@ final class SurroundingMapStore: ObservableObject {
         let current = downloadGeneration
         isDownloading = true
         downloadProgress = 0
-        downloadMessage = "正在准备下载…"
+        downloadMessage = .preparing
         downloadTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -536,15 +650,15 @@ final class SurroundingMapStore: ObservableObject {
                     guard self.downloadGeneration == current else { return }
                     self.downloadProgress = Double(index + 1) / Double(tiles.count)
                     verifiedBytes += await self.cache.byteCount(of: tile)
-                    let size = ByteCountFormatter.string(fromByteCount: verifiedBytes, countStyle: .file)
-                    self.downloadMessage = "已下载 \(size) · \(Int(self.downloadProgress * 100))%"
+                    self.downloadMessage = .progress(bytes: verifiedBytes,
+                                                     percent: Int(self.downloadProgress * 100))
                 }
-                self.downloadMessage = "下载完成，可离线使用"
+                self.downloadMessage = .complete
             } catch is CancellationError {
-                if self.downloadGeneration == current { self.downloadMessage = "下载已暂停，可继续下载" }
+                if self.downloadGeneration == current { self.downloadMessage = .paused }
             } catch {
                 if self.downloadGeneration == current {
-                    self.downloadMessage = "下载已暂停：\(error.localizedDescription)；已完成部分已保留"
+                    self.downloadMessage = .pausedAfterError(error)
                 }
             }
             guard self.downloadGeneration == current else { return }
@@ -560,7 +674,7 @@ final class SurroundingMapStore: ObservableObject {
         downloadGeneration &+= 1
         isDownloading = false
         activeDownloadID = nil
-        if downloadMessage != nil { downloadMessage = "下载已暂停，可继续下载" }
+        if downloadMessage != nil { downloadMessage = .paused }
         Task { [weak self] in await self?.reloadPacks() }
     }
 
@@ -571,7 +685,7 @@ final class SurroundingMapStore: ObservableObject {
             do {
                 try await self.cache.deletePack(id: pack.id)
                 await self.reloadPacks()
-            } catch { self.downloadMessage = error.localizedDescription }
+            } catch { self.downloadMessage = .failure(error) }
         }
     }
 
@@ -580,17 +694,17 @@ final class SurroundingMapStore: ObservableObject {
             guard let self else { return }
             do {
                 try await self.cache.clearTemporaryCache()
-                self.downloadMessage = "临时缓存已清除，已下载地图保留"
-            } catch { self.downloadMessage = error.localizedDescription }
+                self.downloadMessage = .cacheCleared
+            } catch { self.downloadMessage = .failure(error) }
         }
     }
 
     private func reloadPacks() async {
         do {
             packs = try await cache.packs()
-            if let notice = await cache.takeRecoveryNotice() { downloadMessage = notice }
+            if await cache.takeManifestRecovered() { downloadMessage = .manifestRecovered }
         }
-        catch { downloadMessage = "无法读取离线地图：\(error.localizedDescription)" }
+        catch { downloadMessage = .readFailed(error) }
     }
 
     private struct RoadKey: Hashable {

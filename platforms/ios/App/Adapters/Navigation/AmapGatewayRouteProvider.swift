@@ -9,11 +9,20 @@ enum AmapGatewayError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidEndpoint:
-            "路线网关地址无效"
-        case let .rejected(code, message):
-            "\(message)（\(code)）"
+            L("Invalid route gateway address")
+        case let .rejected(code, _):
+            // The gateway's English message is for logs; the stable code
+            // selects the text shown to the rider.
+            switch code {
+            case "NO_ROUTE": L("No route was found to this destination")
+            case "RATE_LIMITED": L("Too many route requests; try again shortly")
+            case "PROVIDER_TIMEOUT", "PROVIDER_UNAVAILABLE", "PROVIDER_HTTP_ERROR", "PROVIDER_INVALID_JSON":
+                L("The route service is unavailable right now")
+            case "SERVER_MISCONFIGURED": L("The gateway is not configured for live navigation")
+            default: L("The route gateway rejected the request (\(code))")
+            }
         case .invalidResponse:
-            "路线网关返回了无法识别的数据"
+            L("The route gateway returned data that could not be read")
         }
     }
 }

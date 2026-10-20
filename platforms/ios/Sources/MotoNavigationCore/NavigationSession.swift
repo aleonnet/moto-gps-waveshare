@@ -50,7 +50,7 @@ public struct NavigationSessionReducer: Sendable {
         case let .start(destination):
             guard destination.isValid else {
                 state.phase = .failed
-                state.failureMessage = "终点坐标无效"
+                state.failureMessage = "invalid destination coordinates"
                 return []
             }
             state = NavigationSessionState()
@@ -149,7 +149,7 @@ public final class NavigationSession {
                 do {
                     try locationSource.start(
                         onFix: { [weak self] fix in self?.process(.location(fix)) },
-                        onFailure: { [weak self] message in self?.process(.locationFailed(message)) }
+                        onFailure: { [weak self] error in self?.process(.locationFailed(error.localizedDescription)) }
                     )
                 } catch {
                     process(.locationFailed(error.localizedDescription))

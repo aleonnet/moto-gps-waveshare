@@ -18,10 +18,10 @@ final class RoutePreviewSupportTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(candidate.title, "推荐路线")
-        XCTAssertEqual(candidate.distanceText, "2.5 km")
-        XCTAssertEqual(candidate.durationText, "13 分钟")
-        XCTAssertEqual(candidate.trafficSummary, "拥堵较多")
+        XCTAssertEqual(candidate.ordinal, 0)
+        XCTAssertEqual(candidate.traffic, .heavy)
+        // Text and number formats are covered per language in
+        // AppLocalizationTests.
     }
 
     func testSelectedRouteIsSuppliedOnlyForInitialRequest() async throws {

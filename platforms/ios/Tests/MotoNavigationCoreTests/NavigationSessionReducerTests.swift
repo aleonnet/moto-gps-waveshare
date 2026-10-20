@@ -67,7 +67,7 @@ final class NavigationSessionReducerTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            reducer.reduce(.routeFailed(requestID: request.requestID, message: "网关超时")),
+            reducer.reduce(.routeFailed(requestID: request.requestID, message: "gateway timeout")),
             [.stopLocation]
         )
         XCTAssertNil(reducer.state.activeRequestID)
@@ -86,7 +86,7 @@ final class NavigationSessionReducerTests: XCTestCase {
             return XCTFail("Expected a route request")
         }
 
-        XCTAssertEqual(reducer.reduce(.locationFailed("定位失败")), [.stopLocation])
+        XCTAssertEqual(reducer.reduce(.locationFailed("location failed")), [.stopLocation])
         XCTAssertNil(reducer.state.activeRequestID)
         _ = reducer.reduce(
             .routeLoaded(RouteEnvelope(requestID: request.requestID, route: samplePlan()))

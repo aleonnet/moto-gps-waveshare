@@ -6,7 +6,7 @@ import MotoNavigationCore
 final class AppModel: ObservableObject {
     @Published private(set) var navigation = MotoNavCoreBridge().snapshot
     @Published private(set) var device = BLEDeviceSnapshot()
-    @Published private(set) var navigationFailure: String?
+    @Published private(set) var navigationFailure: AppMessage?
     @Published private(set) var isNavigationActive = false
     @Published private(set) var isDemoActive = false
 
@@ -15,13 +15,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var selectedPlace: PlaceSearchResult?
     @Published private(set) var recentPlaces: [PlaceSearchResult] = []
     @Published private(set) var isSearchingPlaces = false
-    @Published private(set) var placeSearchFailure: String?
+    @Published private(set) var placeSearchFailure: AppMessage?
     @Published private(set) var searchLocationStatus: SearchLocationBiasStatus = .preparing
     @Published private(set) var routePreviewCandidates: [RoutePreviewCandidate] = []
     @Published private(set) var selectedRoutePreviewID: String?
     @Published private(set) var routePreviewOrigin: WGS84Point?
     @Published private(set) var isPlanningRoutePreview = false
-    @Published private(set) var routePreviewFailure: String?
+    @Published private(set) var routePreviewFailure: AppMessage?
 
     private let bluetooth = ESP32BLECentral()
     private let liveLocation = CoreLocationNavigationSource()
@@ -39,6 +39,9 @@ final class AppModel: ObservableObject {
     private var routePreviewGeneration: UInt64 = 0
 
     private static let recentPlacesKey = "MotoGPS.RecentPlaces.v1"
+
+    /// Views reading it redraw when the language changes; see AppLocalization.
+    var language: AppLanguage { AppLocalization.shared.language }
 
     init(gatewayBaseURL: URL = AppConfiguration.gatewayBaseURL) {
         liveRouteProvider = AmapGatewayRouteProvider(baseURL: gatewayBaseURL)
@@ -71,6 +74,7 @@ final class AppModel: ObservableObject {
         mediaController.onStateChange = { [weak self] state in
             self?.bluetooth.sendMediaState(state)
         }
+        bluetooth.sendLanguage(AppLocalization.shared.deviceLanguageTag)
         searchLocation.onLocationChange = { [weak self] point in
             guard let self else { return }
             let query = self.destinationQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -94,9 +98,9 @@ final class AppModel: ObservableObject {
                   self.searchLocation.latestPoint == nil
             else { return }
             if status == .permissionDenied {
-                self.failRoutePreview("需要当前位置才能规划路线，请在系统设置中允许定位")
+                self.failRoutePreview("Your current location is needed to plan a route. Allow location in Settings.")
             } else if status == .unavailable {
-                self.failRoutePreview("暂时无法获取当前位置，请到开阔位置后重试")
+                self.failRoutePreview("Your location is unavailable right now. Move to an open area and try again.")
             }
         }
 
@@ -126,6 +130,23 @@ final class AppModel: ObservableObject {
 
     var isGatewayConfigured: Bool {
         (try? GatewayConfiguration.normalizedURL(mapGatewayBaseURL.absoluteString)) != nil
+    }
+
+    func selectLanguage(_ language: AppLanguage) {
+        AppLocalization.shared.select(language)
+        // Views redraw through L(); the media text and the round display are
+        // outside SwiftUI and follow explicitly.
+        mediaController.refreshLocalizedText()
+        bluetooth.sendLanguage(AppLocalization.shared.deviceLanguageTag)
+    }
+
+    /// The language's own name, e.g. "Português (Brasil)"; for System, the
+    /// language iOS currently selects.
+    func languageName(_ language: AppLanguage) -> String {
+        let code = language == .system ? AppLocalization.shared.systemLocalization : language.rawValue
+        let locale = Locale(identifier: code)
+        let name = (locale.localizedString(forIdentifier: code) ?? code).capitalized(with: locale)
+        return language == .system ? L("System (\(name))") : name
     }
 
     func saveGatewayAddress(_ address: String) async throws {
@@ -174,65 +195,56 @@ final class AppModel: ObservableObject {
         searchLocationStatus == .available
     }
 
-    var phaseTitle: String {
-        if navigationFailure != nil { return "导航需要处理" }
-        switch navigation.stateName {
-        case "acquiring": return isDemoActive ? "演示即将开始" : "正在获取位置"
-        case "planning": return "正在规划路线"
-        case "navigating": return isDemoActive ? "正在演示导航" : "导航已发送到圆屏"
-        case "rerouting": return "偏航，正在重新规划"
-        case "arrived": return isDemoActive ? "演示完成" : "已经到达"
-        default: return "准备出发"
-        }
-    }
-
     var phaseDetail: String {
-        if let navigationFailure { return navigationFailure }
+        if let navigationFailure { return navigationFailure.text }
         if isDemoActive, navigation.stateName == "navigating" {
             return deviceReady
-                ? "真实济南路网正在同步 · 道路 © OpenStreetMap contributors"
-                : "真实济南路网运行中 · 道路 © OpenStreetMap contributors"
+                ? L("Real Jinan road network syncing · Roads © OpenStreetMap contributors")
+                : L("Real Jinan road network running · Roads © OpenStreetMap contributors")
         }
         switch navigation.stateName {
-        case "acquiring": return "请保持精确定位开启"
-        case "planning": return "正在读取高德实时路线与路况"
-        case "navigating": return deviceReady ? "手机可以锁屏并放入口袋" : "手机继续导航，圆屏连接后自动同步"
-        case "rerouting": return "新路线生成后会自动同步到圆屏"
-        case "arrived": return "本次导航已经完成"
-        default: return "选择终点后，路线会通过蓝牙发送到圆屏"
+        case "acquiring": return L("Keep precise location turned on")
+        case "planning": return L("Reading the live AMap route and traffic")
+        case "navigating":
+            return deviceReady
+                ? L("You can lock the phone and put it in your pocket")
+                : L("The phone keeps navigating; the round display syncs once connected")
+        case "rerouting": return L("The new route syncs to the round display once it is ready")
+        case "arrived": return L("This navigation is complete")
+        default: return L("After you choose a destination, the route is sent to the round display over Bluetooth")
         }
     }
 
     var remainingDistanceText: String {
-        formatDistance(navigation.remainingDistanceM)
+        NavFormatting.distance(meters: navigation.remainingDistanceM)
     }
 
     var remainingDurationText: String {
-        formatDuration(Int(navigation.remainingDurationS))
+        NavFormatting.duration(seconds: Int(navigation.remainingDurationS))
     }
 
     var primaryActionTitle: String {
-        if isNavigationActive { return "结束导航" }
-        if isPlanningRoutePreview { return "正在规划路线" }
-        if selectedPlace == nil { return "请先选择终点" }
-        if selectedRoutePreview == nil { return "重新规划路线" }
-        return "开始导航"
+        if isNavigationActive { return L("End navigation") }
+        if isPlanningRoutePreview { return L("Planning the route") }
+        if selectedPlace == nil { return L("Choose a destination first") }
+        if selectedRoutePreview == nil { return L("Plan the route again") }
+        return L("Start navigation")
     }
 
     var activeDestinationName: String {
-        isDemoActive ? "MOTO GPS 演示路线" : (selectedPlace?.name ?? "目的地")
+        isDemoActive ? L("MOTO GPS demo route") : (selectedPlace?.name ?? L("Destination"))
     }
 
     var searchScopeText: String {
         switch searchLocationStatus {
         case .available:
-            return "已按当前位置优先排序"
+            return L("Sorted by distance from your location")
         case .preparing:
-            return "正在获取当前位置；暂按全国搜索"
+            return L("Getting your location; searching nationwide for now")
         case .permissionDenied:
-            return "未获定位权限；暂按全国搜索"
+            return L("Location not allowed; searching nationwide")
         case .unavailable:
-            return "当前位置暂不可用；暂按全国搜索"
+            return L("Location unavailable; searching nationwide for now")
         }
     }
 
@@ -305,19 +317,19 @@ final class AppModel: ObservableObject {
 
     func startNavigation() {
         guard !isUpdatingGateway, isGatewayConfigured else {
-            navigationFailure = "请先在网关设置中填写服务地址"
+            navigationFailure = .localized("Enter the service address in Gateway settings first")
             return
         }
         guard let selectedPlace else {
-            navigationFailure = "请先从搜索结果中选择终点"
+            navigationFailure = .localized("Choose a destination from the search results first")
             return
         }
         guard let selectedRoutePreview else {
-            navigationFailure = "请先完成路线规划并选择一条路线"
+            navigationFailure = .localized("Plan the route and choose one first")
             return
         }
         guard let routePreviewOrigin else {
-            navigationFailure = "路线起点已失效，请重新规划路线"
+            navigationFailure = .localized("The route start is no longer valid; plan the route again")
             planRoutePreview()
             return
         }
@@ -397,7 +409,7 @@ final class AppModel: ObservableObject {
     func planRoutePreview() {
         guard !isNavigationActive, !isUpdatingGateway, selectedPlace != nil else { return }
         guard isGatewayConfigured else {
-            failRoutePreview("请先在网关设置中填写服务地址")
+            failRoutePreview("Enter the service address in Gateway settings first")
             return
         }
         routePreviewGeneration &+= 1
@@ -411,7 +423,7 @@ final class AppModel: ObservableObject {
         isPlanningRoutePreview = true
 
         if searchLocationStatus == .permissionDenied {
-            failRoutePreview("需要当前位置才能规划路线，请在系统设置中允许定位")
+            failRoutePreview("Your current location is needed to plan a route. Allow location in Settings.")
             return
         }
         if searchLocation.refreshForRoutePlanning() {
@@ -441,8 +453,8 @@ final class AppModel: ObservableObject {
                 )
             }
         }
-        runtime.onFailure = { [weak self] message in
-            self?.navigationFailure = message
+        runtime.onFailure = { [weak self] error in
+            self?.navigationFailure = .error(error)
         }
     }
 
@@ -481,7 +493,7 @@ final class AppModel: ObservableObject {
                     RoutePreviewCandidate(ordinal: $0.offset, route: $0.element)
                 }
                 guard let first = candidates.first else {
-                    self.failRoutePreview("高德没有返回可用路线，请稍后重试")
+                    self.failRoutePreview("AMap returned no usable route. Try again later.")
                     return
                 }
                 self.routePreviewCandidates = candidates
@@ -493,19 +505,19 @@ final class AppModel: ObservableObject {
                 return
             } catch {
                 guard let self, !Task.isCancelled else { return }
-                self.failRoutePreview("路线规划失败，请检查网络后重试")
+                self.failRoutePreview("Route planning failed. Check the network and try again.")
             }
         }
     }
 
-    private func failRoutePreview(_ message: String) {
+    private func failRoutePreview(_ message: LocalizedStringResource) {
         routePreviewTask?.cancel()
         routePreviewTask = nil
         routePreviewCandidates = []
         selectedRoutePreviewID = nil
         routePreviewOrigin = nil
         isPlanningRoutePreview = false
-        routePreviewFailure = message
+        routePreviewFailure = .localized(message)
     }
 
     private func clearRoutePreviewState() {
@@ -526,7 +538,7 @@ final class AppModel: ObservableObject {
         guard !isUpdatingGateway, isGatewayConfigured else {
             placeResults = []
             isSearchingPlaces = false
-            if query.count >= 2 { placeSearchFailure = "请先在网关设置中填写服务地址" }
+            if query.count >= 2 { placeSearchFailure = .localized("Enter the service address in Gateway settings first") }
             return
         }
         guard query.count >= 2 else {
@@ -561,7 +573,7 @@ final class AppModel: ObservableObject {
                 self.placeResults = Self.deduplicated(places)
                 self.isSearchingPlaces = false
                 self.placeSearchFailure = self.placeResults.isEmpty
-                    ? "没有找到，试试输入更完整的地点名"
+                    ? .localized("Nothing found. Try a more complete place name.")
                     : nil
             } catch is CancellationError {
                 return
@@ -569,7 +581,7 @@ final class AppModel: ObservableObject {
                 guard let self, !Task.isCancelled else { return }
                 self.placeResults = []
                 self.isSearchingPlaces = false
-                self.placeSearchFailure = "地点搜索失败，请检查网络后重试"
+                self.placeSearchFailure = .localized("Place search failed. Check the network and try again.")
             }
         }
     }
@@ -618,21 +630,9 @@ final class AppModel: ObservableObject {
         return "geo:\(place.name)|\(place.location.longitudeDeg)|\(place.location.latitudeDeg)"
     }
 
-    private func formatDistance(_ meters: Double) -> String {
-        guard meters.isFinite, meters > 0 else { return "--" }
-        return meters >= 1_000
-            ? String(format: "%.1f km", meters / 1_000)
-            : "\(Int(meters.rounded())) m"
-    }
-
-    private func formatDuration(_ seconds: Int) -> String {
-        guard seconds > 0 else { return "--" }
-        let minutes = max(1, Int(round(Double(seconds) / 60)))
-        return minutes >= 60 ? "\(minutes / 60)时\(minutes % 60)分" : "\(minutes)分钟"
-    }
 }
 
 private enum GatewaySettingsError: LocalizedError {
     case navigationActive
-    var errorDescription: String? { "请先结束导航，再更换网关地址。" }
+    var errorDescription: String? { L("End navigation before changing the gateway address.") }
 }

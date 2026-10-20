@@ -1,6 +1,12 @@
 import Foundation
 import MotoNavigationCore
 
+/// How much of a route is slowed by traffic; colours and text both derive
+/// from this value, never from the displayed words.
+enum RouteTrafficSummary: Equatable {
+    case unknown, smooth, partlySlow, heavy
+}
+
 struct RoutePreviewCandidate: Identifiable, Equatable {
     let ordinal: Int
     let route: RoutePlan
@@ -9,29 +15,18 @@ struct RoutePreviewCandidate: Identifiable, Equatable {
 
     var title: String {
         switch ordinal {
-        case 0: "推荐路线"
-        case 1: "备选路线一"
-        default: "备选路线二"
+        case 0: L("Recommended route")
+        case 1: L("Alternative 1")
+        default: L("Alternative 2")
         }
     }
 
-    var distanceText: String {
-        route.totalDistanceM >= 1_000
-            ? String(format: "%.1f km", route.totalDistanceM / 1_000)
-            : "\(Int(route.totalDistanceM.rounded())) m"
-    }
+    var distanceText: String { NavFormatting.distance(meters: route.totalDistanceM) }
 
-    var durationText: String {
-        let minutes = max(1, Int(round(Double(route.totalDurationS) / 60)))
-        return minutes >= 60
-            ? "\(minutes / 60) 小时 \(minutes % 60) 分"
-            : "\(minutes) 分钟"
-    }
+    var durationText: String { NavFormatting.duration(seconds: Int(route.totalDurationS)) }
 
-    var trafficSummary: String {
-        guard !route.traffic.isEmpty, route.totalDistanceM > 0 else {
-            return "暂无分段路况"
-        }
+    var traffic: RouteTrafficSummary {
+        guard !route.traffic.isEmpty, route.totalDistanceM > 0 else { return .unknown }
         let weighted = route.traffic.reduce(into: (slow: 0.0, congested: 0.0)) { result, segment in
             let length = max(0, segment.endOffsetM - segment.startOffsetM)
             switch segment.level {
@@ -45,9 +40,18 @@ struct RoutePreviewCandidate: Identifiable, Equatable {
         }
         let congestedShare = weighted.congested / route.totalDistanceM
         let affectedShare = (weighted.slow + weighted.congested) / route.totalDistanceM
-        if congestedShare >= 0.12 { return "拥堵较多" }
-        if affectedShare >= 0.18 { return "部分路段缓行" }
-        return "路况顺畅"
+        if congestedShare >= 0.12 { return .heavy }
+        if affectedShare >= 0.18 { return .partlySlow }
+        return .smooth
+    }
+
+    var trafficSummary: String {
+        switch traffic {
+        case .unknown: L("No traffic details")
+        case .smooth: L("Traffic is light")
+        case .partlySlow: L("Slow in places")
+        case .heavy: L("Heavy traffic")
+        }
     }
 }
 

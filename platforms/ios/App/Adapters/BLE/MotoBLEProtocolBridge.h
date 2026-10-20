@@ -164,6 +164,15 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSArray<NSData *> *)encodeMapScene:(MotoBLEMapSceneInput *)scene
                                           error:(NSError **)error;
 
+/// The app's interface language (BCP 47) for the round display.
+- (nullable NSArray<NSData *> *)encodeLocaleSelection:(NSString *)languageTag
+                                                error:(NSError **)error;
+
+/// Test hook for comparing the shared LocaleSelection payload with the
+/// golden fixture.
+- (nullable NSData *)encodeLocalePayloadForTesting:(NSString *)languageTag
+                                             error:(NSError **)error;
+
 /// Test hook for checking the shared MapScene payload without duplicating its
 /// binary layout in Swift.
 - (nullable NSData *)encodeMapScenePayloadForTesting:(MotoBLEMapSceneInput *)scene

@@ -10,7 +10,7 @@ struct PhoneMediaState: Equatable, Sendable {
     var positionSeconds: UInt16 = 0
     var durationSeconds: UInt16 = 0
     var sourceName = "APPLE MUSIC"
-    var trackTitle = "尚未播放"
+    var trackTitle = ""
     var artistName = ""
 
     // Apple does not expose a public API for changing the Apple Music
@@ -119,6 +119,13 @@ final class AppleMusicRemoteController: NSObject {
         return .accepted
     }
 
+    /// Resends the projection so phone-made placeholders follow a new
+    /// interface language.
+    func refreshLocalizedText() {
+        guard started else { return }
+        publishCurrentState()
+    }
+
     func publishCurrentState() {
         let authorized = MPMediaLibrary.authorizationStatus() == .authorized
         guard authorized else {
@@ -127,7 +134,7 @@ final class AppleMusicRemoteController: NSObject {
             onStateChange?(PhoneMediaState(
                 connected: false,
                 sourceName: "APPLE MUSIC",
-                trackTitle: "需要媒体资料库权限"
+                trackTitle: L("Media library access needed")
             ))
             return
         }
@@ -144,7 +151,7 @@ final class AppleMusicRemoteController: NSObject {
             positionSeconds: Self.clampedSeconds(player.currentPlaybackTime),
             durationSeconds: Self.clampedSeconds(duration),
             sourceName: "APPLE MUSIC",
-            trackTitle: title?.isEmpty == false ? title! : "尚未播放",
+            trackTitle: title?.isEmpty == false ? title! : L("Nothing playing"),
             artistName: artist?.isEmpty == false ? artist! : "",
             likeAvailable: false,
             liked: false

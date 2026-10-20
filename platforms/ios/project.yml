@@ -5,6 +5,7 @@ options:
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.0"
+  developmentLanguage: en
   createIntermediateGroups: true
 
 packages:
@@ -51,10 +52,10 @@ targets:
           UIColorName: LaunchBackground
           UIImageName: LaunchLogo
           UIImageRespectsSafeAreaInsets: true
-        NSLocationWhenInUseUsageDescription: MOTO GPS 需要定位来规划路线并更新骑行位置。
-        NSLocationAlwaysAndWhenInUseUsageDescription: 导航开始后，MOTO GPS 需要在锁屏或切换应用时继续更新骑行位置。
-        NSBluetoothAlwaysUsageDescription: MOTO GPS 使用蓝牙连接车把上的 ESP32-S3 圆屏设备。
-        NSAppleMusicUsageDescription: MOTO GPS 需要读取并控制 Apple Music 播放，以便在车把圆屏上切歌和暂停。
+        NSLocationWhenInUseUsageDescription: MOTO GPS needs your location to plan routes and update your ride position.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Once navigation starts, MOTO GPS keeps updating your ride position while the screen is locked or you use another app.
+        NSBluetoothAlwaysUsageDescription: MOTO GPS uses Bluetooth to connect to the ESP32-S3 round display on the handlebar.
+        NSAppleMusicUsageDescription: MOTO GPS reads and controls Apple Music playback so you can change tracks and pause from the round display.
         UIBackgroundModes:
           - location
           - bluetooth-central
@@ -74,6 +75,9 @@ targets:
         SWIFT_VERSION: 5.0
         SWIFT_STRICT_CONCURRENCY: targeted
         SWIFT_OBJC_BRIDGING_HEADER: App/MotoGPS-Bridging-Header.h
+        # Xcode extracts interface strings into App/Localizable.xcstrings.
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         HEADER_SEARCH_PATHS:
           - $(SRCROOT)/../../shared/ble_protocol/include
           - $(SRCROOT)/../../shared/coordinates/include

@@ -9,6 +9,8 @@ struct RouteOverviewMap: UIViewRepresentable {
     let selectedID: String?
     let origin: WGS84Point?
     let destination: WGS84Point
+    /// The annotation titles are UIKit text; a new language redraws them.
+    let localization: String
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -42,7 +44,7 @@ struct RouteOverviewMap: UIViewRepresentable {
     func updateUIView(_ mapView: MKMapView, context: Context) {
         context.coordinator.selectedID = selectedID
         let signature = candidates.map(\.id).joined(separator: "|") +
-            "::" + (selectedID ?? "")
+            "::" + (selectedID ?? "") + "::" + localization
         guard context.coordinator.signature != signature else { return }
         context.coordinator.signature = signature
 
@@ -74,7 +76,7 @@ struct RouteOverviewMap: UIViewRepresentable {
                 latitude: origin.latitudeDeg,
                 longitude: origin.longitudeDeg
             )
-            annotation.title = "当前位置"
+            annotation.title = L("Current location")
             annotation.subtitle = "moto-start"
             mapView.addAnnotation(annotation)
             allCoordinates.append(annotation.coordinate)
@@ -85,7 +87,7 @@ struct RouteOverviewMap: UIViewRepresentable {
             latitude: destination.latitudeDeg,
             longitude: destination.longitudeDeg
         )
-        destinationAnnotation.title = "目的地"
+        destinationAnnotation.title = L("Destination")
         destinationAnnotation.subtitle = "moto-finish"
         mapView.addAnnotation(destinationAnnotation)
         allCoordinates.append(destinationAnnotation.coordinate)

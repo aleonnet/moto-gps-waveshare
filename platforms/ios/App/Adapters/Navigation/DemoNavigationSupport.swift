@@ -88,7 +88,7 @@ final class DemoNavigationLocationSource: NavigationLocationSource {
 
     func start(
         onFix: @escaping @MainActor (NavigationFix) -> Void,
-        onFailure _: @escaping @MainActor (String) -> Void
+        onFailure _: @escaping @MainActor (any Error) -> Void
     ) throws {
         stop()
 

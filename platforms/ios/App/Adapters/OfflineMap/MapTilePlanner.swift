@@ -8,9 +8,9 @@ enum MapPlanningError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidCoordinates: return "地图范围无效，请重新选择城市或路线。"
-        case .areaTooLarge: return "这个范围太大，请选择市内的区县，或分段下载路线。"
-        case .missingRoute: return "请先规划一条路线。"
+        case .invalidCoordinates: return L("Invalid map area. Choose the city or route again.")
+        case .areaTooLarge: return L("This area is too large. Choose a district inside the city, or download the route in parts.")
+        case .missingRoute: return L("Plan a route first.")
         }
     }
 }

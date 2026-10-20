@@ -8,10 +8,10 @@ enum BLEProtocolGoldenCheck {
 
         var errorDescription: String? {
             switch self {
-            case .fixtureMissing: "BLE v1 黄金帧资源不存在"
-            case .vectorMissing: "BLE v1 黄金帧缺少 navigation.payload"
+            case .fixtureMissing: "BLE v1 golden fixture resource is missing"
+            case .vectorMissing: "BLE v1 golden fixture lacks navigation.payload"
             case let .mismatch(expected, actual):
-                "BLE v1 编码不一致：expected \(expected), actual \(actual)"
+                "BLE v1 encoding differs: expected \(expected), actual \(actual)"
             }
         }
     }

@@ -95,23 +95,23 @@ public enum BLEHandshakeValidationError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidSession:
-            "BLE 握手会话编号无效"
+            "invalid BLE handshake session ID"
         case .unexpectedStage:
-            "BLE 握手消息顺序无效"
+            "invalid BLE handshake message order"
         case let .unexpectedRole(role):
-            "BLE 握手端角色无效（\(role)）"
+            "invalid BLE handshake endpoint role (\(role))"
         case let .unexpectedState(state):
-            "设备没有进入 Ready 状态（\(state)）"
+            "device did not enter the Ready state (\(state))"
         case let .unsupportedVersion(minimum, maximum):
-            "设备协议版本不兼容（\(minimum)-\(maximum)）"
+            "incompatible device protocol versions (\(minimum)-\(maximum))"
         case let .missingCapabilities(missing):
-            String(format: "设备缺少必要能力（0x%08X）", missing)
+            String(format: "device lacks required capabilities (0x%08X)", missing)
         case let .invalidFrameSize(size):
-            "设备报告的 BLE 帧大小无效（\(size)）"
+            "device reported an invalid BLE frame size (\(size))"
         case let .invalidHeartbeat(interval):
-            "设备报告的心跳间隔无效（\(interval) ms）"
+            "device reported an invalid heartbeat interval (\(interval) ms)"
         case .inconsistentNegotiation:
-            "设备两次 Ready 的协商参数不一致"
+            "the two device Ready messages negotiated different parameters"
         }
     }
 }

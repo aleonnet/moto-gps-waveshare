@@ -1,0 +1,94 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleMusicUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS reads and controls Apple Music playback so you can change tracks and pause from the round display."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O MOTO GPS lê e controla a reprodução do Apple Music para você trocar de faixa e pausar pela tela redonda."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS 需要读取并控制 Apple Music 播放，以便在车把圆屏上切歌和暂停。"
+          }
+        }
+      }
+    },
+    "NSBluetoothAlwaysUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS uses Bluetooth to connect to the ESP32-S3 round display on the handlebar."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O MOTO GPS usa o Bluetooth para se conectar à tela redonda ESP32-S3 no guidão."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS 使用蓝牙连接车把上的 ESP32-S3 圆屏设备。"
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once navigation starts, MOTO GPS keeps updating your ride position while the screen is locked or you use another app."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depois que a navegação começa, o MOTO GPS continua atualizando sua posição com a tela bloqueada ou em outro app."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导航开始后，MOTO GPS 需要在锁屏或切换应用时继续更新骑行位置。"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS needs your location to plan routes and update your ride position."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O MOTO GPS precisa da sua localização para planejar rotas e atualizar sua posição no trajeto."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTO GPS 需要定位来规划路线并更新骑行位置。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

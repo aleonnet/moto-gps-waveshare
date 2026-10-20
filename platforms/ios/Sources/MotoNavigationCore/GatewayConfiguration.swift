@@ -7,9 +7,9 @@ public enum GatewayAddressError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .invalidAddress:
-            return "请填写有效的 HTTPS 网关地址，不要包含账号、密码、查询参数或 #。"
+            return "Enter a valid HTTPS gateway address without user name, password, query or #."
         case .endpointInsteadOfBase:
-            return "请填写网关根地址，不要带 /healthz 或 /v1/... 接口路径。"
+            return "Enter the gateway root address, without /healthz or /v1/... paths."
         }
     }
 }

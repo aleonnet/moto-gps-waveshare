@@ -246,7 +246,8 @@ moto::ble::ConnectionStatus PhoneConnectionStatus(
                         moto::ble::CapabilityTouchCommands |
                         moto::ble::CapabilityMusicCommands |
                         moto::ble::CapabilityCommandAck |
-                        moto::ble::CapabilityMapScene;
+                        moto::ble::CapabilityMapScene |
+                        moto::ble::CapabilityLocale;
   status.session_id = session_id;
   status.max_frame_size =
       static_cast<std::uint16_t>(storage->maximum_frame_size);
@@ -510,6 +511,26 @@ moto::ble::ConnectionStatus PhoneConnectionStatus(
   return EncodeMessage(storage,
                        moto::ble::Message{MapSceneFromInput(input)},
                        moto::ble::AckRequested, error);
+}
+
+- (NSArray<NSData *> *)encodeLocaleSelection:(NSString *)languageTag
+                                       error:(NSError **)error {
+  auto *storage = static_cast<CodecStorage *>(_storage);
+  moto::ble::LocaleSelection locale;
+  locale.language_tag = languageTag.UTF8String ?: "";
+  return EncodeMessage(storage, moto::ble::Message{locale}, 0, error);
+}
+
+- (NSData *)encodeLocalePayloadForTesting:(NSString *)languageTag
+                                    error:(NSError **)error {
+  moto::ble::LocaleSelection locale;
+  locale.language_tag = languageTag.UTF8String ?: "";
+  const auto encoded = moto::ble::encode_message(moto::ble::Message{locale});
+  if (!encoded.ok()) {
+    if (error != nullptr) *error = ProtocolError(encoded.error, encoded.offset);
+    return nil;
+  }
+  return [NSData dataWithBytes:encoded.value.data() length:encoded.value.size()];
 }
 
 - (NSData *)encodeMapScenePayloadForTesting:(MotoBLEMapSceneInput *)input

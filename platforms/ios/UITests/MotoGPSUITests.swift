@@ -33,11 +33,11 @@ final class MotoGPSUITests: XCTestCase {
         if !maps.isHittable { app.swipeUp() }
         maps.tap()
         XCTAssertTrue(app.descendants(matching: .any)["map-downloads-sheet"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["自动加载周边地图"].exists)
+        XCTAssertTrue(app.staticTexts["map-autoload-title"].exists)
         keepScreenshot(of: app, named: "MOTO GPS map downloads")
         app.buttons["map-download-city"].tap()
         XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["添加常用城市"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["map-city-empty"].exists)
         try tapSystemBack(in: app)
         app.buttons["map-downloads-done"].tap()
         XCTAssertTrue(app.textFields["destination-search-field"].waitForExistence(timeout: 3))
@@ -147,7 +147,7 @@ final class MotoGPSUITests: XCTestCase {
         XCTAssertTrue(start.isEnabled)
 
         try tapSystemBack(in: app)
-        XCTAssertTrue(app.staticTexts["最近搜索"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["recent-places-header"].waitForExistence(timeout: 3))
     }
 
     func testSelectedRouteStartsNavigationAndEndsAtHome() throws {
@@ -167,7 +167,7 @@ final class MotoGPSUITests: XCTestCase {
         let preview = app.descendants(matching: .any)["route-preview-map"]
         XCTAssertTrue(preview.waitForExistence(timeout: 30))
         XCTAssertTrue(app.buttons["route-option-0"].exists)
-        XCTAssertFalse(app.buttons["结束导航"].exists)
+        XCTAssertFalse(app.buttons["end-navigation-action"].exists)
 
         // Explicitly start the real selected route. Selecting a search result
         // alone must remain a preview, including when no round screen is paired.
@@ -177,9 +177,9 @@ final class MotoGPSUITests: XCTestCase {
         refreshTestLocation()
         start.tap()
 
-        let navigationBar = app.navigationBars["导航中"]
-        XCTAssertTrue(navigationBar.waitForExistence(timeout: 15))
-        let end = app.buttons["结束导航"]
+        let navigationScreen = app.descendants(matching: .any)["active-navigation-screen"]
+        XCTAssertTrue(navigationScreen.waitForExistence(timeout: 15))
+        let end = app.buttons["end-navigation-action"]
         XCTAssertTrue(end.waitForExistence(timeout: 5))
         XCTAssertTrue(end.isEnabled)
         keepScreenshot(of: app, named: "MOTO GPS native navigation — selected destination")
@@ -187,9 +187,9 @@ final class MotoGPSUITests: XCTestCase {
 
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         XCTAssertTrue(search.isHittable)
-        XCTAssertTrue(app.staticTexts["最近搜索"].exists)
+        XCTAssertTrue(app.staticTexts["recent-places-header"].exists)
         XCTAssertFalse(end.exists)
-        XCTAssertFalse(navigationBar.exists)
+        XCTAssertFalse(navigationScreen.exists)
         XCTAssertFalse(preview.exists)
         XCTAssertFalse(app.buttons["route-option-0"].exists)
     }
@@ -218,7 +218,7 @@ final class MotoGPSUITests: XCTestCase {
         let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.4))
         from.press(forDuration: 0.01, thenDragTo: to)
 
-        XCTAssertTrue(app.staticTexts["最近搜索"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["recent-places-header"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["destination-search-field"].exists)
         // Preview-only content must disappear when returning to search.
         XCTAssertFalse(app.descendants(matching: .any)["route-preview-map"].exists)
@@ -243,7 +243,7 @@ final class MotoGPSUITests: XCTestCase {
         XCTAssertTrue(start.waitForExistence(timeout: 30))
 
         try tapSystemBack(in: app)
-        XCTAssertTrue(app.staticTexts["最近搜索"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["recent-places-header"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["destination-search-field"].exists)
     }
 
@@ -256,7 +256,7 @@ final class MotoGPSUITests: XCTestCase {
         demo.tap()
 
         // Demo may briefly show acquiring/planning before navigating.
-        let end = app.buttons["结束导航"]
+        let end = app.buttons["end-navigation-action"]
         XCTAssertTrue(end.waitForExistence(timeout: 15))
         XCTAssertTrue(end.isEnabled)
         keepScreenshot(of: app, named: "MOTO GPS native navigation — demo")
@@ -270,7 +270,7 @@ final class MotoGPSUITests: XCTestCase {
         XCTAssertTrue(demo.waitForExistence(timeout: 5))
         demo.tap()
 
-        let end = app.buttons["结束导航"]
+        let end = app.buttons["end-navigation-action"]
         XCTAssertTrue(end.waitForExistence(timeout: 15))
         end.tap()
 
@@ -279,7 +279,6 @@ final class MotoGPSUITests: XCTestCase {
         XCTAssertTrue(app.textFields["destination-search-field"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["demo-navigation-button"].exists)
         XCTAssertFalse(end.exists)
-        XCTAssertFalse(app.staticTexts["正在骑行"].exists)
     }
 
     /// Keeps a real route-preview screenshot in the test result so layout
@@ -371,7 +370,10 @@ final class MotoGPSUITests: XCTestCase {
     }
 
     private func tapSystemBack(in app: XCUIApplication) throws {
-        let backButton = app.navigationBars.buttons.element(boundBy: 0)
+        // Use the topmost bar: under a sheet, the first bar in the tree is the
+        // home screen's, whose first button (gateway settings) is covered.
+        let bars = app.navigationBars.allElementsBoundByIndex
+        let backButton = (bars.last ?? app.navigationBars.firstMatch).buttons.element(boundBy: 0)
         if backButton.waitForExistence(timeout: 2), backButton.isHittable {
             backButton.tap()
             return

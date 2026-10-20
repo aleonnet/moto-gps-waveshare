@@ -25,13 +25,13 @@
 	<key>MOTOGPSGatewayBaseURL</key>
 	<string>https://example.invalid/moto-gps/api/</string>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>MOTO GPS 需要读取并控制 Apple Music 播放，以便在车把圆屏上切歌和暂停。</string>
+	<string>MOTO GPS reads and controls Apple Music playback so you can change tracks and pause from the round display.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>MOTO GPS 使用蓝牙连接车把上的 ESP32-S3 圆屏设备。</string>
+	<string>MOTO GPS uses Bluetooth to connect to the ESP32-S3 round display on the handlebar.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>导航开始后，MOTO GPS 需要在锁屏或切换应用时继续更新骑行位置。</string>
+	<string>Once navigation starts, MOTO GPS keeps updating your ride position while the screen is locked or you use another app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>MOTO GPS 需要定位来规划路线并更新骑行位置。</string>
+	<string>MOTO GPS needs your location to plan routes and update your ride position.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
