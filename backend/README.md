@@ -65,6 +65,18 @@ curl --fail-with-body https://YOUR-DOMAIN/moto-gps/api/healthz
 GET 搜索 URL 可能含搜索词和精确位置，瓦片路径可推断地区；反向代理默认访问日志
 可能保存这些内容。核实日志轮转、备份、保留期与隐私说明，不要宣称零采集或记录密钥。
 
+## 台架：iPhone 与圆屏
+
+1. 在 Mac 上运行真实网关，并在局域网内可达（Key 只放在被忽略的 `.env`）：
+   `MOTO_LISTEN_HOST=0.0.0.0 PORT=8788 MOTO_PROVIDER=regional node --env-file=.env src/server.js`
+2. 用 Xcode 和自己的签名团队把 Debug 版装到 iPhone。首次启动时传入
+   `--moto-local-gateway http://<Mac 名称>.local:8788/`；应用会记住该地址，直到在设置中保存网关。
+   明文 HTTP 只对 `.local` 名称有效，iOS 会拦截直接写 IP 的地址。
+3. 烧录圆屏：
+   `. ~/esp/esp-idf-v5.5.5/export.sh && idf.py -C platforms/esp32 -p /dev/cu.usbmodem<端口> build flash`
+4. 烧录过其他固件后，在 iPhone 设置 › 蓝牙中忽略 MOTO GPS：旧配对已失效，应用会在圆屏卡片上提示。
+5. 在路线页面，“导航”使用 GPS；“模拟”从当前位置或搜索到的起点沿同一路线行驶。
+
 ## API
 
 | 接口 | 用途 |

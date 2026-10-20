@@ -70,6 +70,20 @@ alerts. New authentication schemes require matching client changes. GET search U
 search terms and precise locations, and tile paths reveal an area; reverse-proxy access logs may keep
 these. Verify rotation, backups, retention and privacy disclosures. Do not claim zero collection or log keys.
 
+## Bench: iPhone and round display
+
+1. Run the live gateway on the Mac, reachable on the local network (keys only in the ignored `.env`):
+   `MOTO_LISTEN_HOST=0.0.0.0 PORT=8788 MOTO_PROVIDER=regional node --env-file=.env src/server.js`
+2. Install the Debug app on the iPhone from Xcode with your signing team. Launch it once with
+   `--moto-local-gateway http://<mac-name>.local:8788/`; the app keeps that address until a gateway is saved in
+   Settings. Plain HTTP works only for `.local` names; iOS blocks a bare IP.
+3. Flash the round display:
+   `. ~/esp/esp-idf-v5.5.5/export.sh && idf.py -C platforms/esp32 -p /dev/cu.usbmodem<port> build flash`
+4. After flashing any other firmware, forget MOTO GPS in iPhone Settings › Bluetooth: the old pairing is gone and
+   the app says so on the round display card.
+5. On the route screen, Navigate rides with the GPS; Simulate rides the same route from the current location or a
+   searched start.
+
 ## API
 
 | Endpoint | Purpose |
