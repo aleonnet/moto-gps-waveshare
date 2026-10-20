@@ -31,3 +31,6 @@ backups/
 
 # Local Cloudflare emulator state (also when tests run from the repository root)
 .wrangler/
+
+# Roadmap notes stay on the local machine
+docs/roadmap/
