@@ -20,6 +20,9 @@ test("protocol schemas are versioned and make coordinate systems explicit", asyn
     "GCJ-02",
   );
   assert.ok(bundleSchema.required.includes("request_id"));
+  // A provider outside mainland China changes the label, never the coordinate frame.
+  assert.deepEqual(bundleSchema.$defs.routeBundle.properties.provider.enum, ["amap", "geoapify", "fixture"]);
+  assert.equal(bundleSchema.$defs.routeBundle.properties.provider.const, undefined);
   assert.equal(optionsSchema.properties.protocol_version.const, 1);
   assert.equal(optionsSchema.properties.routes.maxItems, 3);
 });

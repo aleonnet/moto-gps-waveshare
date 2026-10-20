@@ -4,9 +4,18 @@ import { createGateway } from "../src/gateway.js";
 import { createAmapProvider } from "../src/amap-provider.js";
 import { createAmapPlacesProvider } from "../src/amap-places.js";
 import { createAmapCitiesProvider } from "../src/amap-cities.js";
-import { transformAmapRouteV2, transformAmapRouteOptionsV2 } from "../src/amap-transformer.js";
-import { createMapTileProvider } from "../src/map-tiles.js";
-import fixture from "../fixtures/amap-route-v2.json";
+import { createGeoapifyCitiesProvider } from "../src/geoapify-cities.js";
+import { createGeoapifyPlacesProvider } from "../src/geoapify-places.js";
+import { createGeoapifyRouteProvider } from "../src/geoapify-routes.js";
+import { createFixtureProvider } from "../src/fixture-provider.js";
+import { createMapTileProvider, createProtomapsApiArchive, PROTOMAPS_API_SOURCE } from "../src/map-tiles.js";
+import { createRegionalProvider } from "../src/regional-provider.js";
+import amapRoute from "../fixtures/amap-route-jinan-fixture.json";
+import amapPlaces from "../fixtures/amap-places-jinan-fixture.json";
+import amapCities from "../fixtures/amap-cities-shanghai-fixture.json";
+import geoapifyRoute from "../fixtures/geoapify-route-saopaulo.json";
+import geoapifyPlaces from "../fixtures/geoapify-places-ibirapuera.json";
+import geoapifyCities from "../fixtures/geoapify-cities-campinas.json";
 import { createR2Storage } from "./r2-storage.js";
 
 // Workers only supports follow/manual. Preserve the Node provider's refusal to
@@ -40,17 +49,25 @@ function createApp(env) {
     throw new Error("MOTO_BASE_PATH must be empty or a path without a trailing slash");
   }
   let provider;
+  const present = (value) => typeof value === "string" && value.trim() !== "";
+  const amap = (key) => ({ ...createAmapProvider({ key }), ...createAmapPlacesProvider({ key }),
+    ...createAmapCitiesProvider({ key }) });
   if (mode === "amap") {
     const key = env.AMAP_WEB_SERVICE_KEY;
     if (typeof key !== "string" || !key.trim()) throw new Error("AMAP_WEB_SERVICE_KEY is required");
-    provider = { ...createAmapProvider({ key }), ...createAmapPlacesProvider({ key }),
-      ...createAmapCitiesProvider({ key }) };
+    provider = amap(key);
+  } else if (mode === "regional") {
+    const key = env.GEOAPIFY_API_KEY;
+    if (!present(key)) throw new Error("GEOAPIFY_API_KEY is required");
+    provider = createRegionalProvider({
+      china: present(env.AMAP_WEB_SERVICE_KEY)
+        ? { name: "amap", liveTraffic: true, adapter: amap(env.AMAP_WEB_SERVICE_KEY) } : null,
+      global: { name: "geoapify", liveTraffic: false, adapter: { ...createGeoapifyRouteProvider({ key }),
+        ...createGeoapifyPlacesProvider({ key }), ...createGeoapifyCitiesProvider({ key }) } },
+      defaultRegion: env.MOTO_DEFAULT_REGION ?? "global",
+    });
   } else if (mode === "fixture") {
-    provider = {
-      async planRoute() { return transformAmapRouteV2(fixture, { generatedAtMs: Date.now() }); },
-      async planRouteOptions() { return transformAmapRouteOptionsV2(fixture, { generatedAtMs: Date.now() }); },
-      async searchPlaces({ keywords }) { return { protocol_version: 1, query: keywords, places: [] }; },
-    };
+    provider = createFixtureProvider({ amapRoute, amapPlaces, amapCities, geoapifyRoute, geoapifyPlaces, geoapifyCities });
   } else if (mode === "disabled") {
     const unavailable = async () => { throw Object.assign(new Error("AMap live navigation is not configured"), {
       code: "SERVER_MISCONFIGURED", retryable: false,
@@ -60,10 +77,11 @@ function createApp(env) {
     throw new Error("unsupported MOTO_PROVIDER");
   }
   // Fixture and disabled modes must stay offline even with the production 'auto' variable.
-  const mapUrl = mode === "amap" ? (env.MOTO_MAP_PMTILES_URL ?? "auto") : "disabled";
+  const mapUrl = ["amap", "regional"].includes(mode) ? (env.MOTO_MAP_PMTILES_URL ?? "auto") : "disabled";
   if (mapUrl !== "disabled") createR2Storage(env.MAP_CACHE); // Validate the binding without I/O.
+  if (mapUrl === PROTOMAPS_API_SOURCE) createProtomapsApiArchive(env.PROTOMAPS_API_KEY); // Same: the key.
   function maps(ctx) {
-    return createMapTileProvider({ url: mapUrl, scheduleRefresh: false, fetchImpl: mapFetch,
+    return createMapTileProvider({ url: mapUrl, apiKey: env.PROTOMAPS_API_KEY, scheduleRefresh: false, fetchImpl: mapFetch,
       storage: mapUrl === "disabled" ? undefined : createR2Storage(env.MAP_CACHE),
       backgroundTask: (task) => ctx.waitUntil(task),
     });
@@ -74,7 +92,8 @@ function createApp(env) {
       const current = maps(requests.getStore());
       return current.getTile(z, x, y);
     },
-    status: () => ({ enabled: true, mode: mapUrl === "auto" ? "auto" : "fixed", storage: "r2" }),
+    status: () => ({ enabled: true, mode: mapUrl === "auto" || mapUrl === PROTOMAPS_API_SOURCE ? mapUrl : "fixed",
+      storage: "r2" }),
   };
   const server = createGateway({ provider, mapProvider, allowedOrigin: origin, providerMode: mode });
   server.listen(8787); // Workers uses this as an internal routing key, not a TCP listener.
@@ -109,6 +128,8 @@ export default {
       // Never allow caller-supplied proxy headers to bypass the shared gateway's limiter.
       headers.set("X-Real-IP", address);
       headers.delete("X-Forwarded-For");
+      // Only Cloudflare's own geolocation may choose a region; a caller's header never does.
+      headers.set("X-Client-Country", request.cf?.country ?? "");
       const forwarded = new Request(url, { method: request.method, headers, body: request.body,
         redirect: "manual", signal: request.signal });
       return await requests.run(ctx, () => handleAsNodeRequest(8787, forwarded));

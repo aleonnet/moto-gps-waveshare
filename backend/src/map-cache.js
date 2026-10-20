@@ -27,7 +27,7 @@ export class MapDiskCache {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const names = await readdir(this.directory);
     for (const name of names) {
-      if (!/^map-v1-[a-f0-9]{16}-15-\d+-\d+\.json$/.test(name)) continue;
+      if (!/^map-v1-[a-f0-9]{16}-1[45]-\d+-\d+\.json$/.test(name)) continue;
       const info = await stat(join(this.directory, name)).catch(() => null);
       if (!info?.isFile()) continue;
       this.entries.set(name, { bytes: info.size, used: info.mtimeMs });

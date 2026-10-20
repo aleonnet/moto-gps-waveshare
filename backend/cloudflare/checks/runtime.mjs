@@ -12,6 +12,8 @@ const config = JSON.parse(await readFile(new URL("../wrangler.jsonc", import.met
 const routeRequest = JSON.parse(await readFile(new URL("../../fixtures/route-request-v1.json", import.meta.url), "utf8"));
 const routeFixture = await readFile(new URL("../../fixtures/amap-route-v2.json", import.meta.url), "utf8");
 const mvt = await readFile(new URL("../../fixtures/protomaps-jinan-15-27044-12791.mvt", import.meta.url));
+const saoPaulo14 = await readFile(new URL("../../fixtures/protomaps-saopaulo-14-6069-9295.mvt", import.meta.url));
+const geoapifyRoute = await readFile(new URL("../../fixtures/geoapify-route-saopaulo.json", import.meta.url), "utf8");
 const sourceUrl = "https://maps.example.test/test.pmtiles";
 const namespace = (value) => createHash("sha256").update(value).digest("hex").slice(0, 16);
 const tileKey = (value) => `tiles/map-v1-${namespace(value)}-15-27044-12791.json`;
@@ -153,7 +155,7 @@ test("uncached compressed PMTiles are transformed, stored in R2, and served duri
   const count = requests; offline = true;
   const cached = await mf.dispatchFetch("https://gateway.test/v1/map/tiles/15/27044/12791");
   assert.deepEqual(await cached.json(), tile); assert.equal(requests, count);
-  assert.equal((await mf.dispatchFetch("https://gateway.test/v1/map/tiles/14/1/1")).status, 400);
+  assert.equal((await mf.dispatchFetch("https://gateway.test/v1/map/tiles/13/1/1")).status, 400);
   assert.equal((await mf.dispatchFetch("https://gateway.test/v1/map/tiles/15/1/1?url=https://evil.test")).status, 400);
 });
 
@@ -224,4 +226,84 @@ test("concurrent uncached map requests own their I/O and persist valid tiles", a
   }
   const bucket = await mf.getR2Bucket("MAP_CACHE");
   assert.ok((await (await bucket.get(tileKey(sourceUrl))).json()).roads.length > 0);
+});
+
+const saoPauloRequest = JSON.stringify({ ...routeRequest,
+  origin: { coordinate_system: "WGS84", longitude_deg: -46.6333, latitude_deg: -23.5505 },
+  destination: { coordinate_system: "WGS84", longitude_deg: -46.6585214, latitude_deg: -23.5877126 } });
+
+test("regional mode routes by place, takes the country only from Cloudflare, and leaks no key", async (t) => {
+  const seen = [];
+  const mf = await runtime(t, { MOTO_PROVIDER: "regional", GEOAPIFY_API_KEY: "geo-secret-key", AMAP_WEB_SERVICE_KEY: "amap-secret-key",
+    MOTO_MAP_PMTILES_URL: "disabled" }, (request) => {
+    const url = new URL(request.url); seen.push(`${url.hostname}${url.pathname}`);
+    if (url.hostname === "api.geoapify.com" && url.pathname === "/v1/routing") return new Response(geoapifyRoute);
+    if (url.hostname === "api.geoapify.com") return Response.json({ results: [] });
+    if (url.pathname === "/v5/direction/driving") return new Response(routeFixture);
+    if (url.pathname.startsWith("/v5/place/")) return Response.json({ status: "1", pois: [{ id: "B0", name: "济南站", location: "117.0,36.6" }] });
+    throw new Error("unexpected upstream");
+  });
+  const health = await (await mf.dispatchFetch("https://gateway.test/healthz")).json();
+  assert.equal(health.ready_for_live_navigation, true);
+  assert.deepEqual(health.regions, { default: "global", china: { provider: "amap", route_traffic: true },
+    global: { provider: "geoapify", route_traffic: false } });
+  const global = await (await requestRoute(mf, "/v1/routes", saoPauloRequest)).json();
+  assert.equal(global.route.provider, "geoapify");
+  const china = await (await requestRoute(mf)).json();
+  assert.equal(china.route.provider, "amap");
+  const crossing = await requestRoute(mf, "/v1/routes", JSON.stringify({ ...routeRequest, destination: JSON.parse(saoPauloRequest).destination }));
+  assert.equal((await crossing.json()).error.code, "CROSS_REGION_ROUTE_UNSUPPORTED");
+
+  seen.length = 0; // A position-free search: Cloudflare's country decides, a forged header does not.
+  await (await mf.dispatchFetch("https://gateway.test/v1/places?keywords=station", { cf: { country: "CN" },
+    headers: { "X-Client-Country": "BR" } })).text();
+  assert.equal(seen[0], "restapi.amap.com/v5/place/text");
+  seen.length = 0;
+  await (await mf.dispatchFetch("https://gateway.test/v1/places?keywords=station", { cf: { country: "BR" },
+    headers: { "X-Client-Country": "CN" } })).text();
+  assert.equal(seen[0], "api.geoapify.com/v1/geocode/search");
+  for (const text of [JSON.stringify(health), JSON.stringify(global), JSON.stringify(china)]) {
+    assert.doesNotMatch(text, /geo-secret-key|amap-secret-key/);
+  }
+});
+
+test("Geoapify rejection and a missing key both fail closed without leaking", async (t) => {
+  const mf = await runtime(t, { MOTO_PROVIDER: "regional", GEOAPIFY_API_KEY: "geo-secret-key", MOTO_MAP_PMTILES_URL: "disabled" },
+    () => new Response('{"message":"Invalid apiKey geo-secret-key"}', { status: 401 }));
+  const result = await requestRoute(mf, "/v1/routes", saoPauloRequest);
+  const text = await result.text();
+  assert.equal(result.status, 503);
+  assert.doesNotMatch(text, /geo-secret-key/);
+  assert.equal(JSON.parse(text).error.code, "PROVIDER_HTTP_ERROR");
+  const unconfigured = await runtime(t, { MOTO_PROVIDER: "regional" });
+  assert.equal((await (await unconfigured.dispatchFetch("https://gateway.test/healthz")).json()).error.code, "SERVER_MISCONFIGURED");
+});
+
+test("the hosted Protomaps API serves a z14 tile into R2 without storing its key", async (t) => {
+  const mf = await runtime(t, { MOTO_PROVIDER: "regional", GEOAPIFY_API_KEY: "geo", MOTO_MAP_PMTILES_URL: "protomaps-api",
+    PROTOMAPS_API_KEY: "mapsecret123" }, (request) => {
+    assert.equal(request.url, "https://api.protomaps.com/tiles/v4/14/6069/9295.mvt?key=mapsecret123");
+    return new Response(saoPaulo14);
+  });
+  const result = await mf.dispatchFetch("https://gateway.test/v1/map/tiles/14/6069/9295");
+  assert.equal(result.status, 200, await result.clone().text());
+  const tile = await result.json();
+  assert.ok(tile.roads.length > 300);
+  const bucket = await mf.getR2Bucket("MAP_CACHE");
+  const keys = (await bucket.list()).objects.map((object) => object.key);
+  assert.deepEqual(keys, [tileKey("protomaps-api").replace("-15-27044-12791", "-14-6069-9295")]);
+  assert.doesNotMatch(JSON.stringify(tile) + keys.join(), /mapsecret123/);
+  const missingKey = await runtime(t, { MOTO_PROVIDER: "regional", GEOAPIFY_API_KEY: "geo", MOTO_MAP_PMTILES_URL: "protomaps-api" });
+  assert.equal((await missingKey.dispatchFetch("https://gateway.test/healthz")).status, 503);
+});
+
+test("fixture mode answers the iOS test journeys offline", async (t) => {
+  const mf = await runtime(t, { MOTO_PROVIDER: "fixture" });
+  const places = await (await mf.dispatchFetch(`https://gateway.test/v1/places?keywords=${encodeURIComponent("奥体中心")}` +
+    "&longitude_deg=117.1224488&latitude_deg=36.6748039")).json();
+  assert.equal(places.places[0].name, "奥体中心");
+  const cities = await (await mf.dispatchFetch(`https://gateway.test/v1/map/cities?keywords=${encodeURIComponent("上海")}`)).json();
+  assert.equal(cities.cities[0].id, "310000");
+  const route = await (await requestRoute(mf, "/v1/route-options", saoPauloRequest)).json();
+  assert.equal(route.routes[0].provider, "geoapify");
 });

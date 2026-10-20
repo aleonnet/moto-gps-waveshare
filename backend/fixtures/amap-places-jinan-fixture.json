@@ -1,0 +1,19 @@
+{
+  "status": "1",
+  "info": "OK",
+  "infocode": "10000",
+  "count": "1",
+  "pois": [
+    {
+      "id": "B0FFFIXTURE1",
+      "name": "奥体中心",
+      "address": "经十路(合成测试数据)",
+      "cityname": "济南市",
+      "adname": "历下区",
+      "location": "117.136122,36.662426",
+      "navi": {
+        "entr_location": "117.136122,36.662426"
+      }
+    }
+  ]
+}

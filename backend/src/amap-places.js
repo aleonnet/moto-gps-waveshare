@@ -60,7 +60,7 @@ function parseWgs84Origin(value) {
   return { longitude_deg: longitudeDeg, latitude_deg: latitudeDeg };
 }
 
-function distanceMetres(left, right) {
+export function distanceMetres(left, right) {
   const toRadians = (degrees) => (degrees * Math.PI) / 180;
   const latitude1 = toRadians(left.latitude_deg);
   const latitude2 = toRadians(right.latitude_deg);

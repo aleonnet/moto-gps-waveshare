@@ -11,11 +11,17 @@ async function start(t, options = {}) {
 
 test("gateway validates map coordinates/query and exposes disabled capabilities accurately", async (t) => {
   const base = await start(t);
-  for (const path of ["/v1/map/tiles/14/0/0", "/v1/map/tiles/15/-1/0", "/v1/map/tiles/15/32768/0",
+  for (const path of ["/v1/map/tiles/13/0/0", "/v1/map/tiles/16/0/0", "/v1/map/tiles/14/16384/0",
+    "/v1/map/tiles/15/-1/0", "/v1/map/tiles/15/32768/0",
     "/v1/map/tiles/15/0/0?url=https://attacker.test/", "/v1/map/cities?keywords=济南&key=secret"]) {
     assert.equal((await fetch(base + path)).status, 400);
   }
-  assert.equal((await fetch(base + "/v1/map/tiles/15/0/0")).status, 503);
+  // z14 is the round display's zoomed-out scale: valid, then refused only because maps are off.
+  for (const path of ["/v1/map/tiles/15/0/0", "/v1/map/tiles/14/16383/0"]) {
+    const response = await fetch(base + path);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error.code, "MAP_DISABLED");
+  }
   assert.equal((await fetch(base + "/v1/map/cities?keywords=济南")).status, 503);
   const health = await (await fetch(base + "/healthz")).json();
   assert.equal(health.capabilities.surrounding_map, false);

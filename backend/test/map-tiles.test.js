@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createMapTileProvider, createRangeSource, MAP_BUILD_MANIFEST, MapTileError,
+import { createMapTileProvider, createRangeSource, MAP_BUILD_MANIFEST, MapTileError, PROTOMAPS_API_SOURCE,
   selectLatestBuild, tileBoundsWgs84, transformVectorTile } from "../src/map-tiles.js";
 import { MapDiskCache } from "../src/map-cache.js";
 
@@ -57,7 +57,7 @@ test("real Jinan and Shanghai vector tiles become full GCJ footprints and drivab
 });
 
 test("invalid coordinates, corrupt MVT and oversized tiles never produce successful partial maps", () => {
-  for (const point of [[14, 1, 1], [15, -1, 0], [15, 32768, 0], [15, 0.5, 1], [15, NaN, 0]]) {
+  for (const point of [[13, 1, 1], [16, 1, 1], [14, 16384, 0], [15, -1, 0], [15, 32768, 0], [15, 0.5, 1], [15, NaN, 0]]) {
     assert.throws(() => tileBoundsWgs84(...point), { code: "INVALID_REQUEST" });
   }
   assert.throws(() => transformVectorTile(Buffer.from([255, 255, 255]), {
@@ -226,4 +226,54 @@ test("source 404 cannot bypass manifest failure backoff for each downloaded tile
   await value.initialize();
   for (let x = 1; x < 4; x++) await assert.rejects(value.getTile(15, x, 1));
   assert.equal(calls, 2, "only first 404 may immediately force the metadata check");
+});
+
+// Recorded 2026-10-20 from api.protomaps.com/tiles/v4/14/6069/9295.mvt (Sao Paulo; OSM, ODbL-1.0).
+const saoPaulo14 = await readFile(new URL("../fixtures/protomaps-saopaulo-14-6069-9295.mvt", import.meta.url));
+
+test("z14 tiles are the zoomed-out display scale and keep the z15 format", () => {
+  assert.deepEqual(tileBoundsWgs84(14, 6069, 9295).map((value) => Number(value.toFixed(4))),
+    [-46.6479, -23.564, -46.626, -23.5438]); // Independently: Web Mercator tile maths in Python.
+  const value = transformVectorTile(saoPaulo14, { z: 14, x: 6069, y: 9295, revision: "api-v4" });
+  assert.deepEqual(value.tile, { z: 14, x: 6069, y: 9295 });
+  assert.equal(value.coordinate_system, "GCJ-02");
+  assert.ok(value.roads.length > 300 && value.buildings.length > 50);
+});
+
+test("hosted Protomaps API source serves z14 and z15 without exposing its key", async (t) => {
+  const key = "secretKey0123";
+  const requested = [];
+  let answer = () => new Response(saoPaulo14, { headers: { "content-type": "application/x-protobuf" } });
+  const cacheDirectory = await directory(t);
+  const value = provider(t, { url: PROTOMAPS_API_SOURCE, apiKey: key, cacheDirectory,
+    fetchImpl: async (url, options) => { requested.push({ url, options }); return answer(); } });
+  const tile = await value.getTile(14, 6069, 9295);
+  assert.ok(tile.roads.length > 300);
+  assert.equal(tile.source.source_revision, "api-v4");
+  assert.equal(requested[0].url, `https://api.protomaps.com/tiles/v4/14/6069/9295.mvt?key=${key}`);
+  assert.equal(requested[0].options.redirect, "error");
+  assert.equal(value.status().mode, PROTOMAPS_API_SOURCE);
+  assert.doesNotMatch(JSON.stringify(value.status()), new RegExp(key));
+  assert.doesNotMatch((await readdir(cacheDirectory)).join(","), new RegExp(key));
+
+  answer = () => new Response(Buffer.alloc(72), { status: 200 });
+  const ocean = await value.getTile(15, 0, 0);
+  assert.deepEqual([ocean.roads.length, ocean.buildings.length], [0, 0]);
+
+  for (const [status, code] of [[403, "MAP_SOURCE_REJECTED"], [503, "MAP_UPSTREAM_UNAVAILABLE"]]) {
+    answer = () => new Response(`denied ${key}`, { status });
+    const error = await value.getTile(15, 1, status).catch((reason) => reason);
+    assert.equal(error.code, code);
+    assert.doesNotMatch(`${error.message} ${JSON.stringify(value.status())}`, new RegExp(key));
+  }
+  answer = () => { throw new TypeError(`fetch failed for https://api.protomaps.com/x?key=${key}`); };
+  const transport = await value.getTile(15, 2, 2).catch((reason) => reason);
+  assert.equal(transport.code, "MAP_UPSTREAM_UNAVAILABLE");
+  assert.doesNotMatch(transport.message, new RegExp(key));
+});
+
+test("hosted Protomaps API source refuses to start without a usable key", () => {
+  for (const apiKey of [undefined, "", "short", "has spaces in it", "x".repeat(200)]) {
+    assert.throws(() => createMapTileProvider({ url: PROTOMAPS_API_SOURCE, apiKey }), TypeError);
+  }
 });

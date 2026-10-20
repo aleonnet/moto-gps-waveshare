@@ -46,7 +46,8 @@
           "maxLength": 96
         },
         "provider": {
-          "const": "amap"
+          "enum": ["amap", "geoapify", "fixture"],
+          "description": "Who planned the route. Every provider's geometry is already in the GCJ-02 frame below."
         },
         "coordinate_system": {
           "const": "GCJ-02",

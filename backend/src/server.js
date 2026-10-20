@@ -3,28 +3,30 @@ import { readFile } from "node:fs/promises";
 import { createAmapProvider } from "./amap-provider.js";
 import { createAmapPlacesProvider } from "./amap-places.js";
 import { createAmapCitiesProvider } from "./amap-cities.js";
+import { createGeoapifyCitiesProvider } from "./geoapify-cities.js";
+import { createGeoapifyPlacesProvider } from "./geoapify-places.js";
+import { createGeoapifyRouteProvider } from "./geoapify-routes.js";
 import { createMapTileProvider } from "./map-tiles.js";
-import { transformAmapRouteOptionsV2, transformAmapRouteV2 } from "./amap-transformer.js";
+import { createFixtureProvider, FIXTURE_FILES } from "./fixture-provider.js";
 import { createGateway } from "./gateway.js";
+import { createRegionalProvider } from "./regional-provider.js";
 
-async function createFixtureProvider() {
-  const fixtureUrl = new URL("../fixtures/amap-route-v2.json", import.meta.url);
-  const fixture = JSON.parse(await readFile(fixtureUrl, "utf8"));
-  return {
-    async planRoute() {
-      return transformAmapRouteV2(fixture, { generatedAtMs: Date.now() });
-    },
-    async planRouteOptions() {
-      return transformAmapRouteOptionsV2(fixture, { generatedAtMs: Date.now() });
-    },
-    async searchPlaces(query) {
-      return {
-        protocol_version: 1,
-        query: query.keywords,
-        places: [],
-      };
-    },
-  };
+async function loadFixturePayloads() {
+  return Object.fromEntries(await Promise.all(Object.entries(FIXTURE_FILES).map(async ([name, file]) =>
+    [name, JSON.parse(await readFile(new URL(`../fixtures/${file}`, import.meta.url), "utf8"))])));
+}
+
+function createAmapAdapter(key) {
+  return { ...createAmapProvider({ key }), ...createAmapPlacesProvider({ key }), ...createAmapCitiesProvider({ key }) };
+}
+
+function createGeoapifyAdapter(key) {
+  return { ...createGeoapifyRouteProvider({ key }), ...createGeoapifyPlacesProvider({ key }),
+    ...createGeoapifyCitiesProvider({ key }) };
+}
+
+function present(value) {
+  return typeof value === "string" && value.trim() !== "";
 }
 
 function createDisabledProvider() {
@@ -55,13 +57,20 @@ async function main() {
     if (typeof key !== "string" || key.trim() === "") {
       throw new Error("AMAP_WEB_SERVICE_KEY is required when MOTO_PROVIDER=amap");
     }
-    provider = {
-      ...createAmapProvider({ key }),
-      ...createAmapPlacesProvider({ key }),
-      ...createAmapCitiesProvider({ key }),
-    };
+    provider = createAmapAdapter(key);
+  } else if (providerMode === "regional") {
+    // Geoapify serves everything outside mainland China; AMap is optional until a key exists.
+    if (!present(process.env.GEOAPIFY_API_KEY)) {
+      throw new Error("GEOAPIFY_API_KEY is required when MOTO_PROVIDER=regional");
+    }
+    const amapKey = process.env.AMAP_WEB_SERVICE_KEY;
+    provider = createRegionalProvider({
+      china: present(amapKey) ? { name: "amap", liveTraffic: true, adapter: createAmapAdapter(amapKey) } : null,
+      global: { name: "geoapify", liveTraffic: false, adapter: createGeoapifyAdapter(process.env.GEOAPIFY_API_KEY) },
+      defaultRegion: process.env.MOTO_DEFAULT_REGION ?? "global",
+    });
   } else if (providerMode === "fixture") {
-    provider = await createFixtureProvider();
+    provider = createFixtureProvider(await loadFixturePayloads());
   } else if (providerMode === "disabled") {
     provider = createDisabledProvider();
   } else {
@@ -70,7 +79,9 @@ async function main() {
   const port = Number(process.env.PORT ?? 8787);
   const allowedOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
   const mapProvider = createMapTileProvider({
-    url: process.env.MOTO_MAP_PMTILES_URL ?? (providerMode === "amap" ? "auto" : "disabled"),
+    url: process.env.MOTO_MAP_PMTILES_URL ??
+      (["amap", "regional"].includes(providerMode) ? "auto" : "disabled"),
+    apiKey: process.env.PROTOMAPS_API_KEY,
     cacheDirectory: process.env.MOTO_MAP_CACHE_DIR,
     maximumCacheBytes: process.env.MOTO_MAP_CACHE_MAX_BYTES === undefined
       ? undefined : Number(process.env.MOTO_MAP_CACHE_MAX_BYTES),

@@ -108,6 +108,15 @@ function isLoopbackAddress(address) {
     address.startsWith("::ffff:127.");
 }
 
+// Only a trusted local proxy (the Cloudflare Worker) may state the client's country.
+function requestContext(request) {
+  const trusted = isLoopbackAddress(request.socket?.remoteAddress);
+  return {
+    acceptLanguage: String(request.headers["accept-language"] ?? "").slice(0, 128),
+    clientCountry: trusted ? String(request.headers["x-client-country"] ?? "").trim().slice(0, 2) : "",
+  };
+}
+
 export function clientAddress(request) {
   const remote = request.socket?.remoteAddress;
   if (isLoopbackAddress(remote)) {
@@ -166,16 +175,19 @@ export function createGateway({
     }
 
     if (request.method === "GET" && requestUrl.pathname === "/healthz") {
+      // A regional provider states its own route capabilities; AMap-only mode keeps its old answer.
+      const routeCapabilities = provider.capabilities ??
+        { route_planning: providerMode === "amap", route_traffic: providerMode === "amap" };
       sendJson(
         response,
         200,
         {
           status: "ok",
-          ready_for_live_navigation: providerMode === "amap",
+          ready_for_live_navigation: routeCapabilities.route_planning === true,
           provider: providerMode,
           capabilities: {
-            route_planning: providerMode === "amap",
-            route_traffic: providerMode === "amap",
+            route_planning: routeCapabilities.route_planning === true,
+            route_traffic: routeCapabilities.route_traffic === true,
             // Route Planning v2 exposes neither legal road speed limits nor
             // live signal phases. API readiness must not imply those feeds.
             road_speed_limits: false,
@@ -184,6 +196,7 @@ export function createGateway({
             map_city_search: typeof provider.searchCities === "function",
           },
           map_source: mapProvider?.status?.() ?? { enabled: false },
+          ...(provider.regions ? { regions: provider.regions } : {}),
         },
         allowedOrigin,
       );
@@ -216,7 +229,7 @@ export function createGateway({
           }
           const keywords = validateCityKeywords(requestUrl.searchParams.get("keywords"));
           if (typeof provider.searchCities !== "function") throw new BodyReadError("SERVER_MISCONFIGURED", "city search is unavailable");
-          result = await provider.searchCities({ keywords });
+          result = await provider.searchCities({ keywords }, requestContext(request));
         }
         sendJson(response, 200, result, allowedOrigin);
       } catch (error) {
@@ -253,7 +266,7 @@ export function createGateway({
       }
       try {
         const query = validatePlaceQuery(requestUrl);
-        const result = await provider.searchPlaces(query);
+        const result = await provider.searchPlaces(query, requestContext(request));
         sendJson(response, 200, result, allowedOrigin);
       } catch (error) {
         const publicError = safeError(error);
@@ -303,10 +316,11 @@ export function createGateway({
     try {
       body = await readJsonBody(request, maximumBodyBytes);
       validateRouteRequest(body);
+      const context = requestContext(request);
       if (requestUrl.pathname === "/v1/route-options") {
         const routes = typeof provider.planRouteOptions === "function"
-          ? await provider.planRouteOptions(body)
-          : [await provider.planRoute(body)];
+          ? await provider.planRouteOptions(body, context)
+          : [await provider.planRoute(body, context)];
         sendJson(
           response,
           200,
@@ -314,7 +328,7 @@ export function createGateway({
           allowedOrigin,
         );
       } else {
-        const route = await provider.planRoute(body);
+        const route = await provider.planRoute(body, context);
         sendJson(
           response,
           200,

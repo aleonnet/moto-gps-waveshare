@@ -7,6 +7,7 @@
   "workers_dev": true,
   "vars": {
     "MOTO_PROVIDER": "disabled",
+    "MOTO_DEFAULT_REGION": "global",
     "MOTO_MAP_PMTILES_URL": "auto",
     "WEB_ORIGIN": "http://127.0.0.1:4173",
     "MOTO_BASE_PATH": ""

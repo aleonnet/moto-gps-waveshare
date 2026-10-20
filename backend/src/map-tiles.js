@@ -29,10 +29,13 @@ export class MapTileError extends Error {
   }
 }
 
+// z15 is the round display's normal scale; z14 is its zoomed-out scale (twice the distance).
+export const MAP_TILE_ZOOMS = new Set([14, 15]);
+
 export function validateTileCoordinates(z, x, y) {
-  if (z !== 15 || !Number.isSafeInteger(x) || !Number.isSafeInteger(y) ||
+  if (!MAP_TILE_ZOOMS.has(z) || !Number.isSafeInteger(x) || !Number.isSafeInteger(y) ||
       x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) {
-    throw new MapTileError("INVALID_REQUEST", "map tiles require z=15 and x/y in 0..32767", false);
+    throw new MapTileError("INVALID_REQUEST", "map tiles require z=14 or z=15 and x/y inside that zoom", false);
   }
 }
 
@@ -191,6 +194,52 @@ export function createRangeSource(url, { fetchImpl = globalThis.fetch, timeoutMs
   };
 }
 
+export const PROTOMAPS_API_SOURCE = "protomaps-api";
+const PROTOMAPS_API_ENDPOINT = "https://api.protomaps.com/tiles/v4";
+
+/**
+ * The hosted Protomaps API serves the same v4 MVT tiles as the PMTiles builds, one tile per GET.
+ * It looks like a PMTiles archive to the provider below. The key goes only into the request URL:
+ * errors are written here without it, and the cache namespace is derived without it.
+ */
+export function createProtomapsApiArchive(apiKey, { fetchImpl = globalThis.fetch, timeoutMs = 10_000,
+  withSlot = createSemaphore(4), endpoint = PROTOMAPS_API_ENDPOINT } = {}) {
+  if (typeof apiKey !== "string" || !/^[A-Za-z0-9_-]{8,128}$/.test(apiKey)) {
+    throw new TypeError("PROTOMAPS_API_KEY is required for the protomaps-api map source");
+  }
+  return {
+    async getHeader() { return { tileType: TileType.Mvt, minZoom: 0, maxZoom: 15 }; },
+    async getZxy(z, x, y, signal) {
+      return withSlot(async () => {
+        const deadline = AbortSignal.timeout(timeoutMs);
+        const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+        let response;
+        try {
+          response = await fetchImpl(`${endpoint}/${z}/${x}/${y}.mvt?key=${encodeURIComponent(apiKey)}`, {
+            headers: { Accept: "application/vnd.mapbox-vector-tile" }, signal: requestSignal, redirect: "error",
+          });
+        } catch {
+          throw new MapTileError(deadline.aborted ? "MAP_UPSTREAM_TIMEOUT" : "MAP_UPSTREAM_UNAVAILABLE", "map tile request failed");
+        }
+        // No tile at this address is an empty square, not an error.
+        if (response.status === 204 || response.status === 404) { await response.body?.cancel(); return undefined; }
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new MapTileError(response.status === 401 || response.status === 403 ? "MAP_SOURCE_REJECTED" : "MAP_UPSTREAM_UNAVAILABLE",
+            `map tile source returned HTTP ${response.status}`, response.status !== 401 && response.status !== 403);
+        }
+        let buffer;
+        try { buffer = await readLimitedBody(response, MAXIMUM_TILE_BYTES); } catch {
+          throw new MapTileError("MAP_TILE_TOO_LARGE", "map tile exceeds the download limit");
+        }
+        // fetch already removed any Content-Encoding; a gzip magic number here would be a second layer.
+        const data = buffer[0] === 0x1f && buffer[1] === 0x8b ? await boundedDecompress(buffer, Compression.Gzip) : buffer;
+        return { data: data.buffer ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data };
+      });
+    },
+  };
+}
+
 export function selectLatestBuild(manifest) {
   if (!Array.isArray(manifest)) throw new MapTileError("MAP_INVALID_MANIFEST", "map build list is invalid");
   // Official manifest lists completed uploads, not in-progress builds. Never use a URL from its data.
@@ -206,11 +255,15 @@ export function selectLatestBuild(manifest) {
 
 export function createMapTileProvider({ url = "auto", cacheDirectory = resolve(".cache/map-tiles"),
   maximumCacheBytes = 1024 ** 3, fetchImpl = globalThis.fetch, timeoutMs = 10_000,
-  now = () => Date.now(), archiveFactory, storage, scheduleRefresh = true,
+  now = () => Date.now(), archiveFactory, storage, scheduleRefresh = true, apiKey,
   backgroundTask = (task) => { void task; } } = {}) {
   if (url === "disabled") return null;
   const automatic = url === "auto";
-  if (!automatic) validatedSourceUrl(url);
+  const hostedApi = url === PROTOMAPS_API_SOURCE;
+  if (hostedApi) {
+    // Validate the key now so a misconfigured deployment fails at start, not on the first tile.
+    if (!archiveFactory) createProtomapsApiArchive(apiKey);
+  } else if (!automatic) validatedSourceUrl(url);
   const namespace = createHash("sha256").update(automatic ? "protomaps-auto" : url).digest("hex").slice(0, 16);
   const cache = storage?.cache ?? new MapDiskCache(cacheDirectory, maximumCacheBytes);
   const statePath = join(cacheDirectory, `source-${namespace}.json`);
@@ -223,8 +276,9 @@ export function createMapTileProvider({ url = "auto", cacheDirectory = resolve("
 
   function useSource(candidate) {
     if (source?.url === candidate.url) return;
-    const rangeSource = createRangeSource(candidate.url, { fetchImpl, timeoutMs, withSlot: withRangeSlot });
-    archive = archiveFactory ? archiveFactory(candidate.url) : new PMTiles(rangeSource,
+    if (archiveFactory) archive = archiveFactory(candidate.url);
+    else if (hostedApi) archive = createProtomapsApiArchive(apiKey, { fetchImpl, timeoutMs, withSlot: withRangeSlot });
+    else archive = new PMTiles(createRangeSource(candidate.url, { fetchImpl, timeoutMs, withSlot: withRangeSlot }),
       new SharedPromiseCache(64, false, boundedDecompress), boundedDecompress);
     source = candidate;
   }
@@ -244,6 +298,8 @@ export function createMapTileProvider({ url = "auto", cacheDirectory = resolve("
           }
         }
       } catch { /* Offline cache remains usable even without source metadata. */ }
+    } else if (hostedApi) {
+      useSource({ url, revision: "api-v4", schema_version: "4" });
     } else {
       useSource({ url, revision: new URL(url).pathname.split("/").at(-1), schema_version: null });
     }
@@ -293,8 +349,8 @@ export function createMapTileProvider({ url = "auto", cacheDirectory = resolve("
         const current = archive;
         const revision = source.revision;
         const header = await current.getHeader();
-        if (header.tileType !== TileType.Mvt || header.minZoom > 15 || header.maxZoom < 15) {
-          throw new MapTileError("MAP_INVALID_SOURCE", "map source does not contain z15 vector tiles");
+        if (header.tileType !== TileType.Mvt || header.minZoom > z || header.maxZoom < z) {
+          throw new MapTileError("MAP_INVALID_SOURCE", `map source does not contain z${z} vector tiles`);
         }
         const data = await current.getZxy(z, x, y, AbortSignal.timeout(timeoutMs * 3));
         return transformVectorTile(data?.data, { z, x, y, revision, retrievedAt: new Date(now()).toISOString() });
@@ -338,7 +394,7 @@ export function createMapTileProvider({ url = "auto", cacheDirectory = resolve("
       return load(z, x, y, name);
     },
     status() {
-      return { enabled: true, mode: automatic ? "auto" : "fixed", source_revision: source?.revision ?? null,
+      return { enabled: true, mode: automatic ? "auto" : hostedApi ? PROTOMAPS_API_SOURCE : "fixed", source_revision: source?.revision ?? null,
         source_schema_version: source?.schema_version ?? null, last_metadata_refresh: lastMetadataSuccess,
         last_metadata_error: metadataFailed ? "MAP_METADATA_UNAVAILABLE" : null,
         last_success_at: lastSuccess, last_error: lastError, cache: cache.status() };
