@@ -417,6 +417,22 @@
         }
       }
     },
+    "Choose where the simulation starts" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha onde a simulação começa"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择模拟的起点"
+          }
+        }
+      }
+    },
     "Cities cannot be searched right now. Check the network and try again." : {
       "localizations" : {
         "pt-BR" : {
@@ -1617,6 +1633,22 @@
         }
       }
     },
+    "Location and movement are simulated along the chosen route." : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A localização e o movimento são simulados ao longo da rota escolhida."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置和移动沿所选路线模拟。"
+          }
+        }
+      }
+    },
     "Location and movement in the demo are simulated." : {
       "localizations" : {
         "pt-BR" : {
@@ -1837,6 +1869,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的圆屏"
+          }
+        }
+      }
+    },
+    "Navigate" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Navegar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导航"
           }
         }
       }
@@ -2705,6 +2753,22 @@
         }
       }
     },
+    "Ride mode" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo de condução"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骑行模式"
+          }
+        }
+      }
+    },
     "Road data © OpenStreetMap contributors" : {
       "localizations" : {
         "pt-BR" : {
@@ -2929,6 +2993,22 @@
         }
       }
     },
+    "Search for an address or place, for example a street and number." : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busque um endereço ou lugar, por exemplo rua e número."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索地址或地点，例如街道和门牌号。"
+          }
+        }
+      }
+    },
     "Search location" : {
       "localizations" : {
         "pt-BR" : {
@@ -3021,6 +3101,118 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置导航网关"
+          }
+        }
+      }
+    },
+    "Simulate" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simular"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟"
+          }
+        }
+      }
+    },
+    "Simulate from" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simular a partir de"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟起点"
+          }
+        }
+      }
+    },
+    "Simulate route" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simular percurso"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟骑行"
+          }
+        }
+      }
+    },
+    "Simulated" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulada"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟"
+          }
+        }
+      }
+    },
+    "Simulation" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulação"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟骑行"
+          }
+        }
+      }
+    },
+    "Simulation running" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulação em andamento"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟骑行中"
+          }
+        }
+      }
+    },
+    "Simulation start" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Início da simulação"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟起点"
           }
         }
       }
@@ -3373,6 +3565,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "圆屏已就绪，可以接收导航指引。"
+          }
+        }
+      }
+    },
+    "The round display no longer knows this iPhone. Forget MOTO GPS in Settings › Bluetooth; it then connects again." : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tela redonda não reconhece mais este iPhone. Esqueça a MOTO GPS em Ajustes › Bluetooth; depois ela conecta de novo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圆屏已不再识别这台 iPhone。请在“设置 › 蓝牙”中忽略 MOTO GPS，之后会重新连接。"
           }
         }
       }
@@ -3837,6 +4045,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "地点搜索、规划和重新规划路线时，搜索内容、起终点及所需位置会发送给配置的导航服务。网关在中国大陆会将所需信息发送给高德，在其他地区发送给 Geoapify。在线周边地图请求也会透露所查看的区域，网关会从 Protomaps 获取这些地图分块。"
+          }
+        }
+      }
+    },
+    "Where does the simulation start?" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Onde a simulação começa?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟从哪里开始？"
           }
         }
       }

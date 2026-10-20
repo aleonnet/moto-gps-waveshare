@@ -56,6 +56,8 @@ final class MapCitySearch: ObservableObject {
                 try await Task.sleep(for: .milliseconds(350))
                 var request = URLRequest(url: url)
                 request.timeoutInterval = 20
+                // Outside mainland China the gateway names cities in this language.
+                request.setValue(AppLocalization.shared.deviceLanguageTag, forHTTPHeaderField: "Accept-Language")
                 let (data, response) = try await URLSession.shared.data(for: request)
                 try Task.checkCancellation()
                 guard let response = response as? HTTPURLResponse,

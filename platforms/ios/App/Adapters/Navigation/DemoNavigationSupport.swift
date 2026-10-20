@@ -53,9 +53,9 @@ private struct DemoDrivePath: Sendable {
     }
 }
 
-/// Couples the demo route provider to the simulated GNSS source. The source
-/// emits only the initial D-building fix until the provider has returned a
-/// route, then follows that exact returned polyline by travelled metres.
+/// Couples a route to the simulated GNSS source. The source emits only the
+/// starting fix until a route is installed, then follows that exact polyline by
+/// travelled metres. The Jinan demo and the rider's route simulation share it.
 @MainActor
 final class DemoNavigationSession {
     fileprivate private(set) var drivePath: DemoDrivePath?
@@ -80,10 +80,12 @@ final class DemoNavigationLocationSource: NavigationLocationSource {
     private static let frameIntervalSeconds = 1.0 / frameRateHz
     private static let speedMps = 12.0
     private let session: DemoNavigationSession
+    private let origin: WGS84Point
     private var task: Task<Void, Never>?
 
-    init(session: DemoNavigationSession) {
+    init(session: DemoNavigationSession, origin: WGS84Point = JinanDemoFixture.requestedOriginWGS84) {
         self.session = session
+        self.origin = origin
     }
 
     func start(
@@ -92,12 +94,11 @@ final class DemoNavigationLocationSource: NavigationLocationSource {
     ) throws {
         stop()
 
-        // This first real POI coordinate triggers the route request. Movement
-        // deliberately waits for DemoNavigationRouteProvider to install the
-        // returned geometry, preventing a hand-drawn path from diverging from
-        // what the display is rendering.
+        // The starting point triggers the route request. Movement deliberately
+        // waits for an installed route, preventing a hand-drawn path from
+        // diverging from what the display is rendering.
         Self.emit(
-            point: JinanDemoFixture.requestedOriginWGS84,
+            point: origin,
             heading: 0,
             speedMps: 0,
             onFix: onFix

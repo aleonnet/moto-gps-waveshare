@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var showsDataUse = false
     @State private var showsGatewaySettings = false
     @State private var showsLanguageSettings = false
+    @State private var showsSimulationOrigin = false
 
     var body: some View {
         NavigationStack(path: navigationPath) {
@@ -48,6 +49,7 @@ struct ContentView: View {
         .sheet(isPresented: $showsDataUse) { DataUseView() }
         .sheet(isPresented: $showsGatewaySettings) { GatewaySettingsView(model: model) }
         .sheet(isPresented: $showsLanguageSettings) { LanguageSettingsView(model: model) }
+        .sheet(isPresented: $showsSimulationOrigin) { SimulationOriginSearchView(model: model) }
     }
 
     // Derive the stack from the session instead of synchronizing two mutable
@@ -330,8 +332,13 @@ struct ContentView: View {
                         Image(systemName: "mappin.circle.fill").foregroundStyle(.red)
                     }
                     .padding(.vertical, 5)
+                    if model.isSimulationMode { simulationOriginRow }
                 } header: {
-                    Label(L("From my location"), systemImage: "location.fill").textCase(nil)
+                    if model.isSimulationMode {
+                        Label(L("Simulate from"), systemImage: "play.circle.fill").textCase(nil)
+                    } else {
+                        Label(L("From my location"), systemImage: "location.fill").textCase(nil)
+                    }
                 }
 
                 if model.isPlanningRoutePreview {
@@ -525,6 +532,14 @@ struct ContentView: View {
                 .accessibilityHint(L("Switches between the street view and twice the distance"))
                 Button(L("Manage offline maps")) { showsMapDownloads = true }
             }
+            if model.isSimulationActive {
+                Section {
+                    Label(L("Location and movement are simulated along the chosen route."), systemImage: "play.circle")
+                        .font(.footnote)
+                        .foregroundStyle(Color.secondary)
+                        .accessibilityIdentifier("simulation-notice")
+                }
+            }
             if model.isDemoActive {
                 Section {
                     Label(L("Location and movement in the demo are simulated."), systemImage: "info.circle")
@@ -537,7 +552,8 @@ struct ContentView: View {
         }
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("active-navigation-screen")
-        .navigationTitle(model.isDemoActive ? L("Demo navigation") : L("Navigating"))
+        .navigationTitle(model.isDemoActive ? L("Demo navigation")
+            : model.isSimulationActive ? L("Simulation") : L("Navigating"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { deviceToolbarButton }
@@ -559,14 +575,55 @@ struct ContentView: View {
         .accessibilityLabel(L("\(title), \(value)"))
     }
 
+    /// Where a simulation starts; tapping it opens the start search.
+    private var simulationOriginRow: some View {
+        Button { showsSimulationOrigin = true } label: {
+            Label {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(model.simulationOrigin?.name ?? L("Choose where the simulation starts"))
+                        .foregroundStyle(model.simulationOrigin == nil ? Color.indigo : Color.primary)
+                    if let origin = model.simulationOrigin {
+                        Text(placeSubtitle(origin)).font(.subheadline).foregroundStyle(Color.secondary)
+                    }
+                }
+            } icon: {
+                Image(systemName: "figure.walk.motion").foregroundStyle(.indigo)
+            }
+        }
+        .accessibilityIdentifier("simulation-origin-button")
+    }
+
+    private var actionSymbol: String {
+        if model.isNavigationActive { return "stop.fill" }
+        return model.isSimulationMode ? "play.fill" : "location.fill"
+    }
+
+    private var actionTint: Color {
+        if model.isNavigationActive { return .red }
+        return model.isSimulationMode ? .indigo : .blue
+    }
+
     private var navigationActionBar: some View {
         VStack(spacing: 10) {
+            if !model.isNavigationActive {
+                // The mode sits on the action it changes, so a simulation is
+                // never started by mistake: the verb, icon and colour follow it.
+                Picker(L("Ride mode"), selection: Binding(
+                    get: { model.isSimulationMode },
+                    set: { model.setSimulationMode($0) }
+                )) {
+                    Text(L("Navigate")).tag(false)
+                    Text(L("Simulate")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("navigation-mode")
+            }
             Button(action: model.toggleNavigation) {
                 HStack(spacing: 9) {
                     if model.isPlanningRoutePreview {
                         ProgressView().tint(.white)
                     } else {
-                        Image(systemName: model.isNavigationActive ? "stop.fill" : "location.fill")
+                        Image(systemName: actionSymbol)
                     }
                     Text(model.primaryActionTitle).fixedSize(horizontal: false, vertical: true)
                 }
@@ -577,8 +634,9 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.roundedRectangle(radius: 16))
             .controlSize(.large)
-            .tint(model.isNavigationActive ? .red : .blue)
-            .disabled(!model.isNavigationActive && (model.selectedPlace == nil || model.isPlanningRoutePreview))
+            .tint(actionTint)
+            .disabled(!model.isNavigationActive && (model.selectedPlace == nil || model.isPlanningRoutePreview ||
+                (model.isSimulationMode && model.simulationOrigin == nil)))
             .accessibilityIdentifier(model.isNavigationActive ? "end-navigation-action" : "primary-navigation-action")
         }
         .padding(.horizontal, 20)
@@ -791,7 +849,9 @@ struct ContentView: View {
         case "planning": return L("Planning the route")
         case "rerouting": return L("Rerouting")
         case "arrived": return L("You have arrived")
-        case "navigating": return model.isDemoActive ? L("Demo running") : L("Navigating")
+        case "navigating":
+            if model.isDemoActive { return L("Demo running") }
+            return model.isSimulationActive ? L("Simulation running") : L("Navigating")
         default: return L("Ready to ride")
         }
     }
@@ -831,6 +891,7 @@ struct ContentView: View {
 
     private var locationStatus: String {
         if model.isDemoActive { return L("Demo location") }
+        if model.isSimulationActive { return L("Simulated") }
         return model.navigation.hasUsableFix ? L("Available") : L("Locating")
     }
 

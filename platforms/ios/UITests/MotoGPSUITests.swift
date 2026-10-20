@@ -308,6 +308,52 @@ final class MotoGPSUITests: XCTestCase {
         keepScreenshot(of: app, named: "MOTO GPS route preview — Sao Paulo via Geoapify")
     }
 
+    /// A simulation is chosen on purpose, starts where the rider says and
+    /// rides the planned route with simulated GPS.
+    func testRouteSimulationStartsFromTheChosenStart() throws {
+        refreshTestLocation(latitude: -23.5505, longitude: -46.6333)
+        let app = launchApp()
+
+        let search = app.textFields["destination-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Ibirapuera")
+        let destination = app.buttons["place-result-0"]
+        XCTAssertTrue(destination.waitForExistence(timeout: 15))
+        destination.tap()
+
+        let mode = app.segmentedControls["navigation-mode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        XCTAssertTrue(mode.buttons.element(boundBy: 0).isSelected, "a new destination starts in real navigation")
+        mode.buttons.element(boundBy: 1).tap()
+
+        let start = app.buttons["primary-navigation-action"]
+        XCTAssertTrue(start.waitForExistence(timeout: 3))
+        XCTAssertFalse(start.isEnabled, "no simulation without a chosen start")
+        app.buttons["simulation-origin-button"].tap()
+        let originField = app.searchFields.firstMatch
+        XCTAssertTrue(originField.waitForExistence(timeout: 3))
+        originField.tap()
+        originField.typeText("Ibirapuera")
+        let origin = app.buttons["simulation-origin-result-1"]
+        XCTAssertTrue(origin.waitForExistence(timeout: 15))
+        origin.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["route-preview-map"].waitForExistence(timeout: 20))
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: start)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
+        keepScreenshot(of: app, named: "MOTO GPS route simulation — ready")
+        start.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["active-navigation-screen"].waitForExistence(timeout: 15))
+        let notice = app.descendants(matching: .any)["simulation-notice"]
+        for _ in 0 ..< 4 where !notice.exists { app.swipeUp() }
+        XCTAssertTrue(notice.exists, "the active screen says the ride is simulated")
+        keepScreenshot(of: app, named: "MOTO GPS route simulation — riding")
+        app.buttons["end-navigation-action"].tap()
+        XCTAssertTrue(app.textFields["destination-search-field"].waitForExistence(timeout: 5))
+    }
+
     /// The rider switches the round display between the street scale and
     /// twice the distance; the second tap restores the first scale.
     func testMapZoomToggleSwitchesAndRestoresTheRoundDisplayScale() throws {

@@ -9,6 +9,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var navigationFailure: AppMessage?
     @Published private(set) var isNavigationActive = false
     @Published private(set) var isDemoActive = false
+    /// Route simulation: the simulated GPS rides the chosen route from a chosen
+    /// start. Never remembered, so the app always opens in real navigation.
+    @Published private(set) var isSimulationMode = false
+    @Published private(set) var isSimulationActive = false
+    @Published private(set) var simulationOrigin: PlaceSearchResult?
+    @Published private(set) var simulationOriginResults: [PlaceSearchResult] = []
+    @Published private(set) var isSearchingSimulationOrigin = false
 
     @Published var destinationQuery = ""
     @Published private(set) var placeResults: [PlaceSearchResult] = []
@@ -36,6 +43,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isUpdatingGateway = false
     private var runtime: SharedNavigationRuntime?
     private var placeSearchTask: Task<Void, Never>?
+    private var simulationOriginTask: Task<Void, Never>?
     private var routePreviewTask: Task<Void, Never>?
     private var routePreviewRequestID: UInt32 = 1
     private var routePreviewGeneration: UInt64 = 0
@@ -109,6 +117,7 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             self.searchLocationStatus = status
             guard self.isPlanningRoutePreview,
+                  !self.isSimulationMode,
                   self.routePreviewTask == nil,
                   self.searchLocation.latestPoint == nil
             else { return }
@@ -140,6 +149,7 @@ final class AppModel: ObservableObject {
 
     deinit {
         placeSearchTask?.cancel()
+        simulationOriginTask?.cancel()
         routePreviewTask?.cancel()
     }
 
@@ -256,12 +266,58 @@ final class AppModel: ObservableObject {
         if isNavigationActive { return L("End navigation") }
         if isPlanningRoutePreview { return L("Planning the route") }
         if selectedPlace == nil { return L("Choose a destination first") }
+        if isSimulationMode, simulationOrigin == nil { return L("Choose where the simulation starts") }
         if selectedRoutePreview == nil { return L("Plan the route again") }
-        return L("Start navigation")
+        return isSimulationMode ? L("Simulate route") : L("Start navigation")
     }
 
     var activeDestinationName: String {
         isDemoActive ? L("MOTO GPS demo route") : (selectedPlace?.name ?? L("Destination"))
+    }
+
+    /// Switches the route preview between real navigation and a simulation;
+    /// either way the route is planned again from the right start.
+    func setSimulationMode(_ simulate: Bool) {
+        guard !isNavigationActive, simulate != isSimulationMode else { return }
+        isSimulationMode = simulate
+        planRoutePreview()
+    }
+
+    /// Searches the simulation start, biased to the destination so nearby
+    /// streets come first.
+    func searchSimulationOrigin(_ text: String) {
+        simulationOriginTask?.cancel()
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2, isGatewayConfigured else {
+            simulationOriginResults = []
+            isSearchingSimulationOrigin = false
+            return
+        }
+        isSearchingSimulationOrigin = true
+        simulationOriginTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(400))
+                guard let self else { return }
+                let places = try await self.placeProvider.search(keywords: query, near: self.selectedPlace?.location)
+                try Task.checkCancellation()
+                self.simulationOriginResults = Self.deduplicated(places)
+                self.isSearchingSimulationOrigin = false
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.simulationOriginResults = []
+                self.isSearchingSimulationOrigin = false
+            }
+        }
+    }
+
+    func selectSimulationOrigin(_ place: PlaceSearchResult) {
+        simulationOriginTask?.cancel()
+        simulationOrigin = place
+        simulationOriginResults = []
+        isSearchingSimulationOrigin = false
+        planRoutePreview()
     }
 
     var searchScopeText: String {
@@ -326,6 +382,9 @@ final class AppModel: ObservableObject {
         isSearchingPlaces = false
         placeSearchFailure = nil
         navigationFailure = nil
+        // Every new destination starts in real navigation.
+        isSimulationMode = false
+        simulationOrigin = nil
         clearRoutePreviewState()
     }
 
@@ -362,6 +421,10 @@ final class AppModel: ObservableObject {
             planRoutePreview()
             return
         }
+        if isSimulationMode {
+            startSimulation(of: selectedRoutePreview.route, from: routePreviewOrigin, to: selectedPlace)
+            return
+        }
 
         routePreviewTask?.cancel()
         routePreviewTask = nil
@@ -384,6 +447,39 @@ final class AppModel: ObservableObject {
             destinationPOIID: selectedPlace.id.isEmpty ? nil : selectedPlace.id
         )
         isNavigationActive = started
+        if !started {
+            self.runtime = nil
+        }
+    }
+
+    /// Rides the chosen route with simulated GPS from its start; the phone's
+    /// own location is not used. Map tiles, the round display and NavCore work
+    /// exactly as on a real ride.
+    private func startSimulation(of route: RoutePlan, from origin: WGS84Point, to place: PlaceSearchResult) {
+        routePreviewTask?.cancel()
+        routePreviewTask = nil
+        surroundingMap.reset()
+        runtime?.stop()
+        let session = DemoNavigationSession()
+        session.install(route: route)
+        let runtime = SharedNavigationRuntime(
+            locationSource: DemoNavigationLocationSource(session: session, origin: origin),
+            routeProvider: PreviewSelectedRouteProvider(
+                selectedRoute: route,
+                selectedRouteOrigin: origin,
+                liveProvider: liveRouteProvider
+            )
+        )
+        bind(runtime)
+        self.runtime = runtime
+        isDemoActive = false
+        navigationFailure = nil
+        let started = runtime.start(
+            destination: place.location,
+            destinationPOIID: place.id.isEmpty ? nil : place.id
+        )
+        isNavigationActive = started
+        isSimulationActive = started
         if !started {
             self.runtime = nil
         }
@@ -421,6 +517,7 @@ final class AppModel: ObservableObject {
         runtime = nil
         isNavigationActive = false
         isDemoActive = false
+        isSimulationActive = false
         navigationFailure = nil
         surroundingMap.reset()
         // Ending navigation used to leave selectedPlace set, so the app stuck
@@ -451,6 +548,12 @@ final class AppModel: ObservableObject {
         navigationFailure = nil
         isPlanningRoutePreview = true
 
+        if isSimulationMode {
+            // A simulation plans from the chosen start, never from the GPS.
+            if simulationOrigin == nil { isPlanningRoutePreview = false }
+            beginRoutePreviewRequestIfPossible()
+            return
+        }
         if searchLocationStatus == .permissionDenied {
             failRoutePreview("Your current location is needed to plan a route. Allow location in Settings.")
             return
@@ -493,7 +596,7 @@ final class AppModel: ObservableObject {
         guard routePreviewTask == nil,
               isPlanningRoutePreview,
               let place = selectedPlace,
-              let origin = searchLocation.latestPoint
+              let origin = isSimulationMode ? simulationOrigin?.location : searchLocation.latestPoint
         else { return }
 
         let placeIdentity = Self.placeIdentity(place)

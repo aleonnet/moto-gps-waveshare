@@ -1314,9 +1314,19 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         peripheral.delegate = nil
         self.peripheral = nil
         snapshot.connection = shouldMaintainConnection
-            ? .failed(message: error?.localizedDescription ?? "could not connect to the device")
+            ? .failed(message: Self.connectionFailureMessage(error, fallback: "could not connect to the device"))
             : .idle
         scheduleReconnect()
+    }
+
+    /// A round display reflashed or reset forgets this iPhone's pairing keys,
+    /// and only the rider can delete the stale pairing on the iPhone. Retries
+    /// continue, so the link comes back by itself once it is forgotten.
+    static func connectionFailureMessage(_ error: Error?, fallback: String) -> String {
+        if (error as? CBError)?.code == .peerRemovedPairingInformation {
+            return L("The round display no longer knows this iPhone. Forget MOTO GPS in Settings › Bluetooth; it then connects again.")
+        }
+        return error?.localizedDescription ?? fallback
     }
 
     func centralManager(
@@ -1332,7 +1342,7 @@ extension ESP32BLECentral: @preconcurrency CBCentralManagerDelegate {
         peripheral.delegate = nil
         self.peripheral = nil
         snapshot.connection = shouldMaintainConnection
-            ? .failed(message: error?.localizedDescription ?? "device disconnected; waiting to reconnect")
+            ? .failed(message: Self.connectionFailureMessage(error, fallback: "device disconnected; waiting to reconnect"))
             : .idle
         scheduleReconnect()
     }
