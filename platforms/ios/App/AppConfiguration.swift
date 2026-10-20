@@ -13,15 +13,11 @@ enum AppConfiguration {
     /// ATS allows HTTP to .local names since iOS 10 (NSAllowsLocalNetworking).
     private static let localGatewayKey = "MotoGPS.LocalGatewayURL.v1"
 
-    /// Plain-HTTP gateways are a DEBUG bench aid only.
+    /// Plain-HTTP gateways are a DEBUG bench aid only. Reading never writes:
+    /// the launch argument is stored once, in gatewayBaseURL.
     static var localTestGatewayURL: URL? {
         #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--moto-test-gateway") { return testGatewayURL }
-        if let index = arguments.firstIndex(of: "--moto-local-gateway"), index + 1 < arguments.count,
-           let url = URL(string: arguments[index + 1]), isLocalHTTP(url) {
-            UserDefaults.standard.set(url.absoluteString, forKey: localGatewayKey)
-        }
+        if ProcessInfo.processInfo.arguments.contains("--moto-test-gateway") { return testGatewayURL }
         return UserDefaults.standard.string(forKey: localGatewayKey)
             .flatMap(URL.init(string:)).flatMap { isLocalHTTP($0) ? $0 : nil }
         #else
@@ -42,9 +38,14 @@ enum AppConfiguration {
 
     static var gatewayBaseURL: URL {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--moto-reset-gateway") {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--moto-reset-gateway") {
             UserDefaults.standard.removeObject(forKey: GatewayConfiguration.defaultsKey)
             UserDefaults.standard.removeObject(forKey: localGatewayKey)
+        }
+        if let index = arguments.firstIndex(of: "--moto-local-gateway"), index + 1 < arguments.count,
+           let url = URL(string: arguments[index + 1]), isLocalHTTP(url) {
+            UserDefaults.standard.set(url.absoluteString, forKey: localGatewayKey)
         }
         if let localTestGatewayURL { return localTestGatewayURL }
         #endif

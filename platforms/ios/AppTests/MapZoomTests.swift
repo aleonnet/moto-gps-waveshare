@@ -66,3 +66,31 @@ final class MapZoomTests: XCTestCase {
         XCTAssertThrowsError(try codec.encodeMapZoom(13))
     }
 }
+
+/// The bench gateway (DEBUG, plain HTTP to the Mac's .local name) must give way
+/// for good once the rider saves a gateway in Settings.
+final class LocalTestGatewayTests: XCTestCase {
+    private let key = "MotoGPS.LocalGatewayURL.v1"
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    func testReadingNeverStoresAndSavingSettingsForgetsTheBenchGateway() {
+        UserDefaults.standard.set("http://bench-mac.local:8788/", forKey: key)
+        XCTAssertEqual(AppConfiguration.localTestGatewayURL, URL(string: "http://bench-mac.local:8788/"))
+        AppConfiguration.forgetLocalTestGateway()
+        XCTAssertNil(AppConfiguration.localTestGatewayURL)
+        XCTAssertNil(UserDefaults.standard.string(forKey: key), "reading must not write it back")
+    }
+
+    func testOnlyLocalNamesMayUsePlainHTTP() {
+        for (address, allowed) in [("http://bench-mac.local:8788/", true), ("http://localhost:8787/", true),
+                                   ("http://192.168.1.10:8788/", false), ("http://example.com/", false),
+                                   ("https://bench-mac.local/", false)] {
+            XCTAssertEqual(AppConfiguration.isLocalHTTP(URL(string: address)!), allowed, address)
+        }
+        UserDefaults.standard.set("http://example.com/", forKey: key)
+        XCTAssertNil(AppConfiguration.localTestGatewayURL)
+    }
+}
