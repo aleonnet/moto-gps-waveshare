@@ -198,6 +198,12 @@ LocaleSelection locale_fixture() {
   return value;
 }
 
+MapZoom map_zoom_fixture() {
+  MapZoom value;
+  value.zoom_level = 14;
+  return value;
+}
+
 DeviceCommand command_fixture() {
   DeviceCommand value;
   value.kind = DeviceCommandKind::MusicNext;
@@ -269,6 +275,7 @@ void dump_golden() {
   const Bytes geometry = encode_or_fail(Message{geometry_fixture()});
   const Bytes command = encode_or_fail(Message{command_fixture()});
   const Bytes locale = encode_or_fail(Message{locale_fixture()});
+  const Bytes map_zoom = encode_or_fail(Message{map_zoom_fixture()});
   std::cout << "connection.payload=" << hex(ByteView(connection)) << '\n';
   std::cout << "connection.frame="
             << frame_hex(fragment_or_fail(MessageType::ConnectionStatus, 1,
@@ -286,6 +293,11 @@ void dump_golden() {
   std::cout << "locale.frame="
             << frame_hex(fragment_or_fail(MessageType::LocaleSelection, 2,
                                           locale, 182))
+            << '\n';
+  std::cout << "mapzoom.payload=" << hex(ByteView(map_zoom)) << '\n';
+  std::cout << "mapzoom.frame="
+            << frame_hex(fragment_or_fail(MessageType::MapZoom, 3, map_zoom,
+                                          182))
             << '\n';
 }
 
@@ -337,6 +349,7 @@ void test_all_message_round_trips() {
       Message{media_fixture()},
       Message{map_scene_fixture()},
       Message{locale_fixture()},
+      Message{map_zoom_fixture()},
       Message{command_fixture()},
   };
   for (const Message& message : messages) {
@@ -379,6 +392,12 @@ void test_golden_vectors() {
                                    182)));
   CHECK(static_cast<std::uint8_t>(MessageType::LocaleSelection) == 0x15U);
   CHECK(CapabilityLocale == (1U << 8U));
+  const Bytes map_zoom = encode_or_fail(Message{map_zoom_fixture()});
+  CHECK(expected.at("mapzoom.payload") == hex(ByteView(map_zoom)));
+  CHECK(expected.at("mapzoom.frame") ==
+        frame_hex(fragment_or_fail(MessageType::MapZoom, 3, map_zoom, 182)));
+  CHECK(static_cast<std::uint8_t>(MessageType::MapZoom) == 0x16U);
+  CHECK(CapabilityMapZoom == (1U << 9U));
 }
 
 void test_fragmentation_and_reassembly() {
@@ -607,6 +626,26 @@ void test_validation_failures() {
   trailing_locale.push_back(0);
   CHECK(decode_message(MessageType::LocaleSelection,
                        ByteView(trailing_locale)).error ==
+        Error::TrailingPayload);
+
+  // Only the two scales the display draws; a peer cannot ask for another.
+  for (const std::uint8_t level : {0, 13, 16, 255}) {
+    MapZoom zoom;
+    zoom.zoom_level = level;
+    CHECK(encode_message(Message{zoom}).error == Error::OutOfRange);
+    const Bytes payload = {kPayloadRevision, level};
+    CHECK(decode_message(MessageType::MapZoom, ByteView(payload)).error ==
+          Error::OutOfRange);
+  }
+  for (const std::uint8_t level : {14, 15}) {
+    const Bytes payload = {kPayloadRevision, level};
+    const MessageResult decoded =
+        decode_message(MessageType::MapZoom, ByteView(payload));
+    CHECK(decoded.ok() &&
+          std::get<MapZoom>(decoded.value).zoom_level == level);
+  }
+  const Bytes trailing_zoom = {kPayloadRevision, 15, 0};
+  CHECK(decode_message(MessageType::MapZoom, ByteView(trailing_zoom)).error ==
         Error::TrailingPayload);
 
   DeviceCommand zero_command = command_fixture();

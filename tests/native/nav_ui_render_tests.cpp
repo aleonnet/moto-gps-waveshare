@@ -757,6 +757,82 @@ void test_language_after_power_off_from_the_full_ui() {
 
 }  // namespace
 
+struct Touch {
+  bool pressed = false;
+  lv_point_t point{};
+};
+Touch touch;
+
+struct MapTaps {
+  int count = 0;
+  std::int16_t x = -1;
+  std::int16_t y = -1;
+};
+
+void read_touch(lv_indev_t*, lv_indev_data_t* data) {
+  data->point = touch.point;
+  data->state = touch.pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+}
+
+void record_page_request(moto_ui_page_t page, void* context) {
+  *static_cast<moto_ui_page_t*>(context) = page;
+}
+
+void record_map_tap(std::int16_t x, std::int16_t y, void* context) {
+  auto* taps = static_cast<MapTaps*>(context);
+  ++taps->count;
+  taps->x = x;
+  taps->y = y;
+}
+
+// Drags a simulated finger in eight steps, the way a glove crosses the panel.
+void drag(lv_point_t from, lv_point_t to) {
+  touch = {true, from};
+  pump(6);
+  for (int step = 1; step <= 8; ++step) {
+    touch.point = {from.x + (to.x - from.x) * step / 8,
+                   from.y + (to.y - from.y) * step / 8};
+    pump(6);
+  }
+  touch.pressed = false;
+  pump(12);
+}
+
+void test_map_tap_is_a_short_press_and_a_swipe_is_not() {
+  moto_nav_ui_create();
+  moto_nav_ui_set_reduce_motion(1);
+  moto_nav_ui_set_phone_connection(MOTO_UI_PHONE_ONLINE);
+  moto_ui_state_t state = base_state();
+  fill_route(state, 12);
+  fill_streets(state);
+  moto_nav_ui_set_state(&state);
+  MapTaps taps;
+  moto_nav_ui_set_map_tap_callback(record_map_tap, &taps);
+  moto_ui_page_t requested_page = MOTO_UI_PAGE_NAVIGATION;
+  moto_nav_ui_set_page_change_callback(record_page_request, &requested_page);
+  lv_indev_t* indev = lv_indev_create();
+  lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+  lv_indev_set_read_cb(indev, read_touch);
+  // The full-screen "connected" card holds 920 ms and takes every touch;
+  // only then is the map the topmost target, as on the device.
+  pump(220);
+
+  drag({233, 120}, {233, 120});
+  CHECK(taps.count == 1);
+  CHECK(taps.x == 233 && taps.y == 120);
+
+  // A sideways swipe changes the page; a vertical one does nothing. Neither
+  // may change the map scale under the rider's thumb.
+  drag({233, 120}, {20, 120});
+  CHECK(requested_page == MOTO_UI_PAGE_SPEED);
+  drag({233, 40}, {233, 280});
+  CHECK(taps.count == 1);
+
+  moto_nav_ui_set_page_change_callback(nullptr, nullptr);
+  moto_nav_ui_set_map_tap_callback(nullptr, nullptr);
+  lv_indev_delete(indev);
+}
+
 int main(int argc, char **argv) {
   const int buffer_rows = argc > 1 ? std::atoi(argv[1]) : 40;
   const int extra_pool_bytes = argc > 2 ? std::atoi(argv[2]) : 0;
@@ -791,6 +867,7 @@ int main(int argc, char **argv) {
   test_language_switch_on_the_ready_screen();
   test_language_before_the_ui_is_used_at_creation();
   test_language_after_power_off_from_the_full_ui();
+  test_map_tap_is_a_short_press_and_a_swipe_is_not();
 
   // Terminal screens run last: they tear the full UI down.
   moto_nav_ui_show_boot_screen();

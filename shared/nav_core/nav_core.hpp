@@ -19,6 +19,15 @@ constexpr std::size_t kRoadContextPointCapacity = 192;
 constexpr std::size_t kRoadContextPolylineCapacity = 24;
 constexpr std::size_t kBuildingContextPointCapacity = 128;
 constexpr std::size_t kBuildingContextFootprintCapacity = 16;
+constexpr std::uint8_t kDefaultMapZoomLevel = 15;
+constexpr std::uint8_t kZoomedOutMapZoomLevel = 14;
+
+// Ground distance per screen distance relative to zoom 15 (2 at zoom 14).
+// Inline: the firmware links the presenter without nav_core.cpp.
+[[nodiscard]] constexpr double map_zoom_scale(
+    std::uint8_t map_zoom_level) noexcept {
+  return map_zoom_level == kZoomedOutMapZoomLevel ? 2.0 : 1.0;
+}
 
 enum class RoadContextClass : std::uint8_t {
   Motorway = 0,
@@ -64,6 +73,8 @@ struct NavSnapshot {
   NavState state = NavState::Idle;
   NetworkState network = NetworkState::Offline;
   DisplayPage display_page = DisplayPage::Navigation;
+  // A rider preference like the page: it survives a new route.
+  std::uint8_t map_zoom_level = kDefaultMapZoomLevel;
 
   bool has_destination = false;
   bool has_usable_fix = false;

@@ -68,6 +68,7 @@ class PhoneNavBridge {
   static void page_changed(moto_ui_page_t page, void* context);
   static void music_command(moto_music_command_t command, void* context);
   static void demo_changed(uint8_t enabled, void* context);
+  static void map_tapped(int16_t x, int16_t y, void* context);
 
   void consume_navigation(const moto::ble::NavigationSnapshot& input);
   moto::ble::AckStatus consume_geometry(
@@ -75,6 +76,7 @@ class PhoneNavBridge {
   void consume_traffic(const moto::ble::TrafficDeviation& input);
   void consume_media(const moto::ble::MediaState& input);
   void consume_locale(const moto::ble::LocaleSelection& input);
+  void consume_map_zoom(const moto::ble::MapZoom& input);
   moto::ble::AckStatus consume_map_scene(const moto::ble::MapScene& input);
   // Requires state_mutex_. This helper never calls LVGL or the BLE sender.
   void apply_geometry_locked(moto::nav::NavSnapshot& target);

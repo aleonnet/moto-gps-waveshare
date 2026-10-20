@@ -16,6 +16,10 @@ moto_music_command_callback_t music_callback = nullptr;
 void* music_callback_context = nullptr;
 moto_demo_change_callback_t demo_callback = nullptr;
 void* demo_callback_context = nullptr;
+moto_map_tap_callback_t map_tap_callback = nullptr;
+void* map_tap_callback_context = nullptr;
+moto_ui_point_t last_route_start{};
+moto_ui_point_t last_route_end{};
 int apply_count = 0;
 int board_lock_count = 0;
 bool board_lock_available = true;
@@ -98,6 +102,10 @@ extern "C" void moto_nav_ui_set_state(const moto_ui_state_t* state) {
                        : state->next_road_name;
   last_heading_deg = state->heading_deg;
   last_route_point_count = state->route_point_count;
+  if (state->route_point_count >= 2) {
+    last_route_start = state->route_points[0];
+    last_route_end = state->route_points[state->route_point_count - 1];
+  }
   last_road_point_count = state->road_point_count;
   last_road_polyline_count = state->road_polyline_count;
   last_road_class = state->road_polyline_count == 0
@@ -172,6 +180,14 @@ extern "C" void moto_nav_ui_set_demo_change_callback(
   demo_callback_context = context;
 }
 
+extern "C" void moto_nav_ui_set_map_tap_callback(
+    moto_map_tap_callback_t callback,
+    void* context) {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  map_tap_callback = callback;
+  map_tap_callback_context = context;
+}
+
 namespace moto::test {
 
 void reset_phone_nav_bridge_probe() {
@@ -182,6 +198,8 @@ void reset_phone_nav_bridge_probe() {
   last_road_name.clear();
   last_heading_deg = 0;
   last_route_point_count = 0;
+  last_route_start = {};
+  last_route_end = {};
   last_road_point_count = 0;
   last_road_polyline_count = 0;
   last_road_class = 0;
@@ -232,6 +250,29 @@ void emit_music_command(moto_music_command_t command) {
   if (callback == nullptr) return;
   const std::lock_guard<std::recursive_mutex> lock(board_mutex);
   callback(command, context);
+}
+
+void emit_map_tap(int16_t x, int16_t y) {
+  moto_map_tap_callback_t callback = nullptr;
+  void* context = nullptr;
+  {
+    const std::lock_guard<std::mutex> lock(probe_mutex);
+    callback = map_tap_callback;
+    context = map_tap_callback_context;
+  }
+  if (callback == nullptr) return;
+  const std::lock_guard<std::recursive_mutex> lock(board_mutex);
+  callback(x, y, context);
+}
+
+moto_ui_point_t phone_nav_bridge_last_route_start() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return last_route_start;
+}
+
+moto_ui_point_t phone_nav_bridge_last_route_end() {
+  const std::lock_guard<std::mutex> lock(probe_mutex);
+  return last_route_end;
 }
 
 void emit_demo_change(bool enabled) {

@@ -397,6 +397,47 @@ void test_route_window_uses_geometry_metres_and_survives_dense_vertices() {
         490.0);
 }
 
+void test_zoom_14_doubles_the_route_window_at_once_and_zoom_15_restores_it() {
+  constexpr Wgs84Point start{31.230400, 121.473700};
+  constexpr Wgs84Point destination{31.230400, 121.503700};
+  NavCore core;
+  core.handle(NetworkChanged{NetworkState::Online});
+  core.handle(BeginNavigation{destination});
+  const auto request = core.handle(GnssFixReceived{fix(start, 1'000)});
+  RouteBundle route;
+  route.route_id = "dense-zoom-geometry";
+  for (int i = 0; i <= 3'000; ++i) {
+    route.polyline.push_back(gcj02({start.latitude_deg,
+                                    start.longitude_deg + i * 0.00001}));
+  }
+  core.handle(RouteReady{request[0].request_id, route, 1'010});
+  const double longitude_metres = 111'000.0 *
+      std::cos(start.latitude_deg * 3.14159265358979323846 / 180.0);
+  const auto span_m = [&](const NavSnapshot& view) {
+    const auto first = view.route_view_points.front();
+    const auto last = view.route_view_points[view.route_view_point_count - 1];
+    return (last.longitude_deg - first.longitude_deg) * longitude_metres;
+  };
+  CHECK(core.snapshot().map_zoom_level == kDefaultMapZoomLevel);
+  const double street_span_m = span_m(core.snapshot());
+  CHECK(street_span_m > 490.0 && street_span_m < 600.0);
+
+  // The window widens on the event itself; the rider does not wait a fix.
+  core.handle(MapZoomSelected{14});
+  CHECK(core.snapshot().map_zoom_level == 14);
+  CHECK(span_m(core.snapshot()) > 990.0);
+  core.handle(MapZoomSelected{13});
+  CHECK(core.snapshot().map_zoom_level == 14);
+  core.handle(GnssFixReceived{fix(start, 2'000)});
+  CHECK(span_m(core.snapshot()) > 990.0);
+  core.handle(MapZoomSelected{15});
+  CHECK(std::abs(span_m(core.snapshot()) - street_span_m) < 1.0);
+
+  core.handle(MapZoomSelected{14});
+  core.handle(CancelNavigation{});
+  CHECK(core.snapshot().map_zoom_level == 14);
+}
+
 void test_residential_exit_retains_close_corners_after_a_long_detour() {
   const Wgs84Point points[] = {
       {31.2304,121.4737}, {31.2313,121.4737},
@@ -593,6 +634,7 @@ int main() {
   test_route_match_recovers_after_a_long_fix_gap();
   test_route_match_recovers_loop_after_gap_with_stopped_endpoints();
   test_route_window_uses_geometry_metres_and_survives_dense_vertices();
+  test_zoom_14_doubles_the_route_window_at_once_and_zoom_15_restores_it();
   test_residential_exit_retains_close_corners_after_a_long_detour();
   test_route_corner_capacity_reduces_horizon_without_skipping_turns();
   test_missing_heading_preserves_the_last_valid_course();

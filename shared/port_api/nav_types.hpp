@@ -162,6 +162,12 @@ struct DisplayPageSelected {
   DisplayPage page = DisplayPage::Navigation;
 };
 
+// Round-display map scale as a web-map zoom level: 15 is the normal street
+// view, 14 shows twice the distance. Any other level is ignored.
+struct MapZoomSelected {
+  std::uint8_t level = 15;
+};
+
 using NavEvent = std::variant<Reset,
                               BeginNavigation,
                               CancelNavigation,
@@ -173,7 +179,8 @@ using NavEvent = std::variant<Reset,
                               TrafficUpdateFailed,
                               Tick,
                               SimulateDeviation,
-                              DisplayPageSelected>;
+                              DisplayPageSelected,
+                              MapZoomSelected>;
 
 enum class CommandType : std::uint8_t {
   RequestRoute,

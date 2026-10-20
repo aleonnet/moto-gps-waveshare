@@ -18,7 +18,8 @@ constexpr double kVehicleY = 196.0 * kUiScale;
 // A navigation minimap is a spatial frame of reference, so it must not jump
 // between zoom levels as a maneuver counter crosses an arbitrary threshold.
 // This fixed street-scale view shows roughly 400 m ahead on the 466 px round
-// display and is shared by the selected route and all context roads.
+// display and is shared by the selected route and all context roads. Zoom 14
+// is the rider's explicit choice of twice the distance, never automatic.
 constexpr double kMapPixelsPerMeter = 0.44 * kUiScale;
 
 double radians(double degrees) { return degrees * kPi / 180.0; }
@@ -149,6 +150,7 @@ std::uint32_t route_identity(const std::string& route_id) {
 struct MapTransform {
   double origin_latitude_deg = 0.0;
   double origin_longitude_deg = 0.0;
+  double latitude_pixels_per_degree = 1.0;
   double longitude_pixels_per_degree = 1.0;
   float sin_heading = 0.0F;
   float cos_heading = 1.0F;
@@ -158,11 +160,16 @@ MapTransform map_transform(const NavSnapshot& snapshot) {
   const double finite_heading =
       std::isfinite(snapshot.heading_deg) ? snapshot.heading_deg : 0.0;
   const double heading = radians(finite_heading);
+  // Zoom 14 keeps the rider in place and halves every distance on screen.
+  const double latitude_pixels_per_degree =
+      kPi / 180.0 * kEarthRadiusM * kMapPixelsPerMeter /
+      map_zoom_scale(snapshot.map_zoom_level);
   return {
       snapshot.route_view_origin.latitude_deg,
       snapshot.route_view_origin.longitude_deg,
+      latitude_pixels_per_degree,
       std::cos(radians(snapshot.route_view_origin.latitude_deg)) *
-          (kPi / 180.0 * kEarthRadiusM * kMapPixelsPerMeter),
+          latitude_pixels_per_degree,
       static_cast<float>(std::sin(heading)),
       static_cast<float>(std::cos(heading)),
   };
@@ -179,7 +186,7 @@ moto_ui_point_t project_map_point(const Gcj02Point& point,
       transform.longitude_pixels_per_degree);
   const float north = static_cast<float>(
       (point.latitude_deg - transform.origin_latitude_deg) *
-      (kPi / 180.0 * kEarthRadiusM * kMapPixelsPerMeter));
+      transform.latitude_pixels_per_degree);
 
   // Heading-up transform: the rider remains fixed and every real street
   // translates/rotates together under it, as on an automotive minimap.

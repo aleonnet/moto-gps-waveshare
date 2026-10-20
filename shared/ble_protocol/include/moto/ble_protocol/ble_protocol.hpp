@@ -119,6 +119,7 @@ enum class MessageType : std::uint8_t {
   MediaState = 0x13,
   MapScene = 0x14,
   LocaleSelection = 0x15,
+  MapZoom = 0x16,
   DeviceCommand = 0x20,
 };
 
@@ -277,6 +278,7 @@ enum Capability : std::uint32_t {
   CapabilityCommandAck = 1U << 6U,
   CapabilityMapScene = 1U << 7U,
   CapabilityLocale = 1U << 8U,
+  CapabilityMapZoom = 1U << 9U,
 };
 
 struct ConnectionStatus {
@@ -537,6 +539,15 @@ struct LocaleSelection {
   bool operator==(const LocaleSelection& rhs) const noexcept;
 };
 
+// The round display's map scale chosen on the phone: 15 (street view) or 14
+// (twice the distance). Optional message: sent only when both endpoints
+// advertise CapabilityMapZoom; the phone resends it in every session.
+struct MapZoom {
+  std::uint8_t zoom_level = 15;
+
+  bool operator==(const MapZoom& rhs) const noexcept;
+};
+
 enum class DeviceCommandKind : std::uint8_t {
   PageSelected = 0,
   Tap = 1,
@@ -573,6 +584,7 @@ using Message = std::variant<ConnectionStatus,
                              MediaState,
                              MapScene,
                              LocaleSelection,
+                             MapZoom,
                              DeviceCommand>;
 
 using MessageResult = Result<Message>;

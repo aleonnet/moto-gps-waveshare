@@ -164,6 +164,7 @@ START 当且仅当 `fragment_offset == 0`。END 当且仅当
 | `0x13` | MediaState | 手机→设备 | 曲目/播放变化，进度最高 1 Hz |
 | `0x14` | MapScene | 手机→设备 | 前进约 100 m、跨离线分块或路线改变时 |
 | `0x15` | LocaleSelection | 手机→设备 | 握手完成后及应用语言改变时 |
+| `0x16` | MapZoom | 手机→设备 | 握手完成后及骑手切换地图比例时 |
 | `0x20` | DeviceCommand | 设备→手机 | 用户动作，ACK_REQUESTED+URGENT |
 
 ## 6. Payload 编码
@@ -184,7 +185,7 @@ u16 heartbeat_interval_ms  >=250
 
 能力位：bit0 navigation、bit1 route geometry、bit2 traffic、bit3 media state、
 bit4 touch commands、bit5 music commands、bit6 command ACK、bit7 map scene、
-bit8 locale selection。
+bit8 locale selection、bit9 map zoom。
 
 ### 6.2 Heartbeat (`0x02`, 固定 11 字节)
 
@@ -402,6 +403,10 @@ kind：0 PageSelected、1 Tap、2 LongPress、3 SwipeLeft、4 SwipeRight、5 Swi
 手机以 `(session_id, command_id)` 去重；成功、失败或重复都回复 Ack。UI 动作必须在
 成功提交后才 ACK Ok。
 
+导航页地图上的短按发送 page=Navigation 的 Tap。双方都声明 bit9 时，手机在 15 与 14
+之间切换地图比例，并以 MapZoom 和新半径的路线窗口、MapScene 回应；设备不自行改变比例，
+因此不会画出手机尚未提供数据的比例。
+
 ### 6.10 LocaleSelection (`0x15`)
 
 ```text
@@ -414,6 +419,20 @@ u8 + ASCII language_tag    BCP 47，1..15 字节：首字符为字母，其余�
 设备按语言子标签把 `pt` 映射为 pt-BR、`zh` 映射为 zh-Hans、其余映射为 en-US，立即生效并保存，
 下次开机在连接手机之前即使用该语言。道路名、导航指令和媒体文字仍是手机提供的数据，
 设备不会翻译。
+
+### 6.11 MapZoom (`0x16`, 固定 2 字节)
+
+```text
+u8  revision
+u8  zoom_level             14 或 15；其他值整条消息拒绝
+```
+
+圆屏地图比例，以 Web 地图缩放级别表示：15 为街道比例（前方约 445 m），14 显示两倍
+距离（约 890 m）。仅当双方都声明 bit9 时，手机在握手完成后立即发送当前级别，并在骑手
+于应用或设备上切换时再次发送（不设 ACK_REQUESTED，每个新会话都会重发）。切换时手机
+同时把 RouteGeometry 的窗口和 MapScene 的 `radius_m` 加倍（14 级约 1000 m，仍在
+100..1500 之内）。连接断开时设备回到 15，直到新会话的手机另行指定；不支持 bit9 的一端
+既不发送也不接收，圆屏保持 15。
 
 ## 7. Display Snapshot 到共享 NavSnapshot
 
@@ -487,6 +506,13 @@ b701200e341208000d00ff40302010ef35
 ```text
 010570742d4252
 b7011503020000000700010570742d42528bb9
+```
+
+缩放级别 14 的 MapZoom payload，以及 sequence 3 的单帧：
+
+```text
+010e
+b7011603030000000200010e259a
 ```
 
 机器可读的完整向量以 fixture 为准。修改任何 v1 字节都应先解释兼容性影响，并由

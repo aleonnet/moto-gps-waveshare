@@ -300,6 +300,7 @@ void PhoneNavBridge::install_ui_callbacks() {
   moto_nav_ui_set_page_change_callback(page_changed, this);
   moto_nav_ui_set_music_command_callback(music_command, this);
   moto_nav_ui_set_demo_change_callback(demo_changed, this);
+  moto_nav_ui_set_map_tap_callback(map_tapped, this);
 }
 
 bool PhoneNavBridge::start_renderer() {
@@ -350,6 +351,8 @@ void PhoneNavBridge::on_link_state(bool active) {
       geometry_ = {};
       phone_snapshot.has_route_view = false;
       clear_map_context(phone_snapshot);
+      // The scale belongs to the phone session; the next phone resends its own.
+      phone_snapshot.map_zoom_level = moto::nav::kDefaultMapZoomLevel;
       heading_fusion_.reset();
       last_motion_present_ms_ = 0;
       music_page_enabled_ = false;
@@ -572,6 +575,8 @@ moto::ble::AckStatus PhoneNavBridge::on_message(
           return consume_map_scene(value);
         } else if constexpr (std::is_same_v<T, moto::ble::LocaleSelection>) {
           consume_locale(value);
+        } else if constexpr (std::is_same_v<T, moto::ble::MapZoom>) {
+          consume_map_zoom(value);
         } else if constexpr (std::is_same_v<T, moto::ble::Ack>) {
           ESP_LOGD(kTag, "phone ack sequence=%u command=%u status=%u",
                    value.acknowledged_sequence, value.command_id,
@@ -802,6 +807,14 @@ void PhoneNavBridge::consume_locale(const moto::ble::LocaleSelection& input) {
     language_tag_ = input.language_tag;
   }
   request_render(RenderLanguage);
+}
+
+void PhoneNavBridge::consume_map_zoom(const moto::ble::MapZoom& input) {
+  {
+    const std::lock_guard<std::mutex> lock(state_mutex_);
+    phone_snapshot_locked().map_zoom_level = input.zoom_level;
+  }
+  present_navigation();
 }
 
 moto::ble::AckStatus PhoneNavBridge::consume_map_scene(
@@ -1060,6 +1073,17 @@ void PhoneNavBridge::music_command(moto_music_command_t command,
 
 void PhoneNavBridge::demo_changed(uint8_t enabled, void* context) {
   static_cast<PhoneNavBridge*>(context)->set_demo_active(enabled != 0U);
+}
+
+// The phone owns the scale: it answers with MapZoom and a wider route window
+// and map scene, so the display never draws a scale it has no data for.
+void PhoneNavBridge::map_tapped(int16_t x, int16_t y, void* context) {
+  moto::ble::DeviceCommand command;
+  command.kind = moto::ble::DeviceCommandKind::Tap;
+  command.page = moto::ble::DisplayPage::Navigation;
+  command.x = static_cast<std::uint16_t>(std::max<int16_t>(0, x));
+  command.y = static_cast<std::uint16_t>(std::max<int16_t>(0, y));
+  static_cast<PhoneNavBridge*>(context)->send_device_command(command);
 }
 
 void PhoneNavBridge::send_page_command(moto_ui_page_t page) {

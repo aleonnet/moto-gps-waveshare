@@ -106,6 +106,7 @@ typedef void (*moto_page_change_callback_t)(moto_ui_page_t page,
                                              void *context);
 typedef void (*moto_demo_change_callback_t)(uint8_t enabled,
                                              void *context);
+typedef void (*moto_map_tap_callback_t)(int16_t x, int16_t y, void *context);
 
 typedef struct {
     moto_ui_page_t page;
@@ -180,6 +181,9 @@ void moto_nav_ui_set_demo_active(uint8_t enabled);
 void moto_nav_ui_set_demo_change_callback(
     moto_demo_change_callback_t callback,
     void *context);
+/** A short tap on the navigation map, in screen pixels; a swipe never is. */
+void moto_nav_ui_set_map_tap_callback(moto_map_tap_callback_t callback,
+                                      void *context);
 
 #ifdef __cplusplus
 }

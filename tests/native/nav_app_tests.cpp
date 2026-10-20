@@ -60,11 +60,25 @@ void test_display_page_is_shared_state_and_survives_navigation_reset() {
   CHECK(app.snapshot().display_page == DisplayPage::Speed);
 }
 
+void test_map_zoom_is_a_rider_preference_that_survives_navigation_reset() {
+  NavApp app;
+  CHECK(app.snapshot().map_zoom_level == 15);
+  app.handle(MapZoomSelected{14});
+  CHECK(app.snapshot().map_zoom_level == 14);
+  app.handle(BeginNavigation{Wgs84Point{39.92015, 116.410886}});
+  CHECK(app.snapshot().map_zoom_level == 14);
+  app.handle(Reset{});
+  CHECK(app.snapshot().map_zoom_level == 14);
+  app.handle(MapZoomSelected{15});
+  CHECK(app.snapshot().map_zoom_level == 15);
+}
+
 }  // namespace
 
 int main() {
   test_every_event_is_presented_from_the_core_snapshot();
   test_display_page_is_shared_state_and_survives_navigation_reset();
+  test_map_zoom_is_a_rider_preference_that_survives_navigation_reset();
   if (failures != 0) {
     std::cerr << failures << " nav_app checks failed\n";
     return EXIT_FAILURE;

@@ -497,6 +497,11 @@ Error validate(const LocaleSelection& value) {
   return Error::None;
 }
 
+Error validate(const MapZoom& value) {
+  return value.zoom_level == 14 || value.zoom_level == 15 ? Error::None
+                                                          : Error::OutOfRange;
+}
+
 Error validate(const DeviceCommand& value) {
   if (!valid_command_kind(value.kind) || !valid_display_page(value.page)) {
     return Error::InvalidEnum;
@@ -632,6 +637,8 @@ BytesResult encode_payload(const T& value) {
     }
   } else if constexpr (std::is_same_v<T, LocaleSelection>) {
     writer.string_u8(value.language_tag);
+  } else if constexpr (std::is_same_v<T, MapZoom>) {
+    writer.u8(value.zoom_level);
   } else if constexpr (std::is_same_v<T, DeviceCommand>) {
     writer.u8(static_cast<std::uint8_t>(value.kind));
     writer.u16(value.command_id);
@@ -919,6 +926,16 @@ MessageResult decode_locale_selection(ByteView payload) {
   LocaleSelection value;
   if (begin_payload(reader)) {
     value.language_tag = reader.string_u8(kMaxLanguageTagBytes);
+    reader.require_end();
+  }
+  return decoded_result(std::move(value), reader);
+}
+
+MessageResult decode_map_zoom(ByteView payload) {
+  Reader reader(payload);
+  MapZoom value;
+  if (begin_payload(reader)) {
+    value.zoom_level = reader.u8();
     reader.require_end();
   }
   return decoded_result(std::move(value), reader);
@@ -1487,6 +1504,10 @@ bool LocaleSelection::operator==(const LocaleSelection& rhs) const noexcept {
   return language_tag == rhs.language_tag;
 }
 
+bool MapZoom::operator==(const MapZoom& rhs) const noexcept {
+  return zoom_level == rhs.zoom_level;
+}
+
 bool DeviceCommand::operator==(const DeviceCommand& rhs) const noexcept {
   return std::tie(kind, command_id, page, x, y, event_time_ms) ==
          std::tie(rhs.kind, rhs.command_id, rhs.page, rhs.x, rhs.y,
@@ -1515,6 +1536,8 @@ MessageType message_type(const Message& message) noexcept {
           return MessageType::MapScene;
         } else if constexpr (std::is_same_v<T, LocaleSelection>) {
           return MessageType::LocaleSelection;
+        } else if constexpr (std::is_same_v<T, MapZoom>) {
+          return MessageType::MapZoom;
         } else {
           return MessageType::DeviceCommand;
         }
@@ -1543,6 +1566,7 @@ MessageResult decode_message(MessageType type, ByteView payload) {
     case MessageType::MapScene: return decode_map_scene(payload);
     case MessageType::LocaleSelection:
       return decode_locale_selection(payload);
+    case MessageType::MapZoom: return decode_map_zoom(payload);
     case MessageType::DeviceCommand:
       return decode_device_command(payload);
   }

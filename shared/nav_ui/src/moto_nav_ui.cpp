@@ -189,6 +189,8 @@ struct Ui {
     void *page_callback_context = nullptr;
     moto_demo_change_callback_t demo_callback = nullptr;
     void *demo_callback_context = nullptr;
+    moto_map_tap_callback_t map_tap_callback = nullptr;
+    void *map_tap_callback_context = nullptr;
     bool music_page_enabled = true;
     bool demo_active = false;
     bool reduce_motion = false;
@@ -403,6 +405,19 @@ void gesture_event(lv_event_t *) {
     }
     reveal_page_dots();
     lv_indev_wait_release(indev);
+}
+
+void map_tap_event(lv_event_t *) {
+    lv_indev_t *indev = lv_indev_active();
+    // LVGL still reports a short click after a vertical swipe (only page
+    // swipes wait for release): any recognised gesture is not a tap.
+    if(indev == nullptr || ui.map_tap_callback == nullptr ||
+       lv_indev_get_gesture_dir(indev) != LV_DIR_NONE) return;
+    lv_point_t point{};
+    lv_indev_get_point(indev, &point);
+    ui.map_tap_callback(static_cast<int16_t>(point.x),
+                        static_cast<int16_t>(point.y),
+                        ui.map_tap_callback_context);
 }
 
 void draw_map_line(lv_layer_t *layer, const lv_draw_line_dsc_t &line) {
@@ -1609,6 +1624,10 @@ void create_navigation_page() {
     lv_obj_add_flag(ui.nav_map, LV_OBJ_FLAG_EVENT_BUBBLE);
     lv_obj_add_flag(ui.nav_map, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_set_height(ui.nav_map, px(232));
+    // A tap asks the phone for the other map scale (LVGL 9 sends
+    // SHORT_CLICKED only for a short press that did not scroll).
+    lv_obj_add_event_cb(ui.nav_map, map_tap_event, LV_EVENT_SHORT_CLICKED,
+                        nullptr);
 
     // Real building footprints are quiet closed outlines beneath both roads
     // and the selected route. No inferred rectangles or decorative fill is
@@ -2231,4 +2250,10 @@ extern "C" void moto_nav_ui_set_demo_change_callback(
     moto_demo_change_callback_t callback, void *context) {
     ui.demo_callback = callback;
     ui.demo_callback_context = context;
+}
+
+extern "C" void moto_nav_ui_set_map_tap_callback(
+    moto_map_tap_callback_t callback, void *context) {
+    ui.map_tap_callback = callback;
+    ui.map_tap_callback_context = context;
 }

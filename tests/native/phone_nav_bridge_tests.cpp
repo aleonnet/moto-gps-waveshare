@@ -479,6 +479,65 @@ void test_ios_demo_token_attaches_context_and_live_route_clears_it() {
   CHECK(moto::test::phone_nav_bridge_last_road_polyline_count() == 0);
 }
 
+void test_phone_map_zoom_scales_the_display_and_ends_with_the_link() {
+  moto::test::reset_phone_nav_bridge_probe();
+  moto::nav::NavPresenter presenter;
+  PhoneNavBridge bridge(presenter);
+  MusicSenderContext sender;
+  bridge.set_sender(record_music_sender, &sender);
+  bridge.install_ui_callbacks();
+  bridge.on_link_state(true);
+
+  std::uint16_t sequence = 70;
+  const auto send_route = [&](std::uint32_t generation) {
+    moto::ble::RouteGeometry geometry;
+    geometry.route_token = moto::ble::route_token("zoom-route");
+    geometry.route_generation = generation;
+    geometry.total_point_count = 2;
+    geometry.view_origin = {36'670'000, 117'130'000};
+    geometry.points = {{36'670'000, 117'130'000}, {36'672'500, 117'130'000}};
+    moto::ble::NavigationSnapshot snapshot;
+    snapshot.state = moto::ble::NavigationState::Navigating;
+    snapshot.network = moto::ble::NetworkState::Online;
+    snapshot.flags = moto::ble::NavigationHasRouteView;
+    snapshot.route_token = geometry.route_token;
+    snapshot.route_generation = generation;
+    CHECK(bridge.on_message(make_message(geometry, sequence++)) ==
+          moto::ble::AckStatus::Ok);
+    CHECK(bridge.on_message(make_message(snapshot, sequence++)) ==
+          moto::ble::AckStatus::Ok);
+    pump(bridge);
+  };
+  send_route(1);
+  const moto_ui_point_t rider = moto::test::phone_nav_bridge_last_route_start();
+  const moto_ui_point_t street = moto::test::phone_nav_bridge_last_route_end();
+  CHECK(rider.y - street.y > 100);  // 278 m due north, ahead of the rider.
+
+  moto::ble::MapZoom zoom;
+  zoom.zoom_level = 14;
+  CHECK(bridge.on_message(make_message(zoom, sequence++)) ==
+        moto::ble::AckStatus::Ok);
+  pump(bridge);
+  const moto_ui_point_t wide = moto::test::phone_nav_bridge_last_route_end();
+  CHECK(std::abs(2 * (rider.y - wide.y) - (rider.y - street.y)) <= 2);
+  CHECK(wide.x == street.x);
+
+  // A new phone session starts at the street scale until it says otherwise.
+  bridge.on_link_state(false);
+  bridge.on_link_state(true);
+  send_route(2);
+  CHECK(moto::test::phone_nav_bridge_last_route_end().y == street.y);
+
+  // A tap on the map asks the phone; the display does not rescale by itself.
+  moto::test::emit_map_tap(233, 120);
+  CHECK(!sender.commands.empty() &&
+        sender.commands.back().kind == moto::ble::DeviceCommandKind::Tap &&
+        sender.commands.back().page == moto::ble::DisplayPage::Navigation &&
+        sender.commands.back().x == 233 && sender.commands.back().y == 120);
+  pump(bridge);
+  CHECK(moto::test::phone_nav_bridge_last_route_end().y == street.y);
+}
+
 void test_map_scene_atomically_replaces_roads_and_buildings_at_capacity() {
   moto::test::reset_phone_nav_bridge_probe();
   moto::nav::NavPresenter presenter;
@@ -655,6 +714,7 @@ int main() {
   test_phone_language_reaches_the_ui_and_is_stored_once();
   test_demo_uses_the_production_presenter_path();
   test_ios_demo_token_attaches_context_and_live_route_clears_it();
+  test_phone_map_zoom_scales_the_display_and_ends_with_the_link();
   test_map_scene_atomically_replaces_roads_and_buildings_at_capacity();
   test_imu_presentation_preserves_40hz_phase_and_stale_course_is_ignored();
 

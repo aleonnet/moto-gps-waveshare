@@ -51,6 +51,8 @@ extern "C" void moto_nav_ui_set_demo_active(uint8_t) {}
 extern "C" void moto_nav_ui_set_demo_change_callback(
     moto_demo_change_callback_t,
     void*) {}
+extern "C" void moto_nav_ui_set_map_tap_callback(moto_map_tap_callback_t,
+                                                 void*) {}
 
 namespace moto::test {
 

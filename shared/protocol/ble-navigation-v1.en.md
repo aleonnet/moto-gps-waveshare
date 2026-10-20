@@ -192,6 +192,7 @@ Byte 0 of every logical payload is `payload_revision=1`.
 | `0x13` | MediaState | phone→device | track / playback change, progress at most 1 Hz |
 | `0x14` | MapScene | phone→device | after about 100 m of travel, on crossing an offline tile, or on a route change |
 | `0x15` | LocaleSelection | phone→device | after the handshake and whenever the app language changes |
+| `0x16` | MapZoom | phone→device | after the handshake and whenever the rider switches the map scale |
 | `0x20` | DeviceCommand | device→phone | user action, ACK_REQUESTED+URGENT |
 
 ## 6. Payload encoding
@@ -211,7 +212,8 @@ u16 heartbeat_interval_ms  >=250
 ```
 
 Capability bits: bit0 navigation, bit1 route geometry, bit2 traffic, bit3 media state, bit4
-touch commands, bit5 music commands, bit6 command ACK, bit7 map scene, bit8 locale selection.
+touch commands, bit5 music commands, bit6 command ACK, bit7 map scene, bit8 locale selection,
+bit9 map zoom.
 
 ### 6.2 Heartbeat (`0x02`, fixed 11 bytes)
 
@@ -443,6 +445,11 @@ already normalised, so the phone must not infer the direction from the coordinat
 The phone deduplicates by `(session_id, command_id)`; success, failure and duplicates all get an
 Ack reply. A UI action must be ACKed Ok only after a successful commit.
 
+A short tap on the navigation-page map sends Tap with page=Navigation. When both sides advertise
+bit9, the phone switches the map scale between 15 and 14 and answers with MapZoom plus a route
+window and MapScene of the new radius; the device never changes the scale by itself, so it never
+draws a scale the phone has not supplied data for.
+
 ### 6.10 LocaleSelection (`0x15`)
 
 ```text
@@ -457,6 +464,21 @@ predate bit8 neither send nor receive it. The device maps
 language subtag `pt` to pt-BR, `zh` to zh-Hans and any other tag to en-US, applies it immediately and stores it so
 the next boot starts in that language before a phone connects. Road names, instructions and media
 text remain the phone's data and are never translated by the device.
+
+### 6.11 MapZoom (`0x16`, fixed 2 bytes)
+
+```text
+u8  revision
+u8  zoom_level             14 or 15; any other value rejects the whole message
+```
+
+The round display's map scale as a web-map zoom level: 15 is the street scale (about 445 m ahead),
+14 shows twice the distance (about 890 m). The phone sends it only when both sides advertise bit9,
+right after the handshake and again whenever the rider switches it in the app or on the device,
+without ACK_REQUESTED because every new session repeats it. On a switch the phone also doubles the
+RouteGeometry window and the MapScene `radius_m` (about 1000 m at 14, still inside 100..1500). The
+device returns to 15 when the link drops, until the next session's phone says otherwise; an end
+that predates bit9 neither sends nor receives it, and the display stays at 15.
 
 ## 7. Display Snapshot to the shared NavSnapshot
 
@@ -537,6 +559,13 @@ LocaleSelection payload for `pt-BR`, and its single frame with sequence 2:
 ```text
 010570742d4252
 b7011503020000000700010570742d42528bb9
+```
+
+MapZoom payload for zoom level 14, and its single frame with sequence 3:
+
+```text
+010e
+b7011603030000000200010e259a
 ```
 
 The machine-readable complete vectors are authoritative in the fixture. Changing any v1 byte

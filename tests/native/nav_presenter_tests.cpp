@@ -11,6 +11,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -407,6 +408,49 @@ void test_map_scale_does_not_jump_at_maneuver_distance_thresholds() {
   }
 }
 
+void test_zoom_14_halves_every_map_distance_around_the_fixed_rider() {
+  NavPresenter presenter;
+  NavSnapshot snapshot;
+  snapshot.state = NavState::Navigating;
+  snapshot.heading_deg = 30.0F;
+  snapshot.has_route_view = true;
+  snapshot.route_view_origin = {36.67, 117.13};
+  snapshot.route_view_point_count = 2;
+  snapshot.route_view_points[0] = snapshot.route_view_origin;
+  snapshot.route_view_points[1] = {36.6725, 117.1325};
+  snapshot.has_road_context = true;
+  snapshot.road_context_point_count = 2;
+  snapshot.road_context_points[0] = {36.668, 117.128};
+  snapshot.road_context_points[1] = snapshot.route_view_points[1];
+  snapshot.road_context_polyline_count = 1;
+  snapshot.road_context_polylines[0] = {0, 2};
+
+  presenter.update(snapshot);
+  const moto_ui_state_t street = presenter.ui_state();
+  snapshot.map_zoom_level = 14;
+  presenter.update(snapshot);
+  const moto_ui_state_t wide = presenter.ui_state();
+
+  // The rider stays put; every other point moves halfway towards the rider.
+  CHECK(wide.route_points[0].x == street.route_points[0].x);
+  CHECK(wide.route_points[0].y == street.route_points[0].y);
+  const int rider_x = street.route_points[0].x;
+  const int rider_y = street.route_points[0].y;
+  for (const auto& [near, far] :
+       {std::pair{street.route_points[1], wide.route_points[1]},
+        std::pair{street.road_points[0], wide.road_points[0]}}) {
+    CHECK(std::abs(2 * (far.x - rider_x) - (near.x - rider_x)) <= 2);
+    CHECK(std::abs(2 * (far.y - rider_y) - (near.y - rider_y)) <= 2);
+    CHECK(std::abs(near.x - rider_x) + std::abs(near.y - rider_y) > 100);
+  }
+
+  // Any other level draws the street scale, never an invented one.
+  snapshot.map_zoom_level = 13;
+  presenter.update(snapshot);
+  CHECK(presenter.ui_state().route_points[1].x == street.route_points[1].x);
+  CHECK(presenter.ui_state().route_points[1].y == street.route_points[1].y);
+}
+
 void test_missing_or_incomplete_geometry_stays_empty() {
   NavPresenter presenter;
   NavSnapshot snapshot;
@@ -491,6 +535,7 @@ int main() {
   test_real_road_context_uses_the_same_heading_up_transform();
   test_map_scene_classes_buildings_and_capacity_share_route_transform();
   test_map_scale_does_not_jump_at_maneuver_distance_thresholds();
+  test_zoom_14_halves_every_map_distance_around_the_fixed_rider();
   test_missing_or_incomplete_geometry_stays_empty();
   test_presenter_owns_road_name_storage();
 #ifdef MOTO_NAV_UI_TEST_STUB

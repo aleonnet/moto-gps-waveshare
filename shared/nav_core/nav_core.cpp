@@ -59,7 +59,7 @@ double point_segment_distance_squared_m(const Gcj02Point& point,
 }
 
 std::vector<std::size_t> route_view_vertex_indices(
-    const std::vector<Gcj02Point>& points) {
+    const std::vector<Gcj02Point>& points, double tolerance_m) {
   std::vector<std::size_t> indices;
   if (points.size() < 2) return indices;
   std::vector<bool> retained(points.size(), false);
@@ -70,9 +70,7 @@ std::vector<std::size_t> route_view_vertex_indices(
     const auto [first, last] = pending.back();
     pending.pop_back();
     std::size_t furthest = first;
-    double largest_distance_squared =
-        kRouteViewSimplificationToleranceM *
-        kRouteViewSimplificationToleranceM;
+    double largest_distance_squared = tolerance_m * tolerance_m;
     for (std::size_t i = first + 1; i < last; ++i) {
       const double squared = point_segment_distance_squared_m(
           points[i], points[first], points[last]);
@@ -197,6 +195,16 @@ NavCommands NavCore::handle(NavEvent event) {
           }
         } else if constexpr (std::is_same_v<T, DisplayPageSelected>) {
           view_.display_page = value.page;
+        } else if constexpr (std::is_same_v<T, MapZoomSelected>) {
+          if ((value.level == kDefaultMapZoomLevel ||
+               value.level == kZoomedOutMapZoomLevel) &&
+              value.level != view_.map_zoom_level) {
+            view_.map_zoom_level = value.level;
+            // Redraw the route window now, not at the next GNSS fix.
+            if (last_match_fix_gcj02_.has_value()) {
+              update_route_view(*last_match_fix_gcj02_, view_.route_progress_m);
+            }
+          }
         }
       },
       std::move(event));
@@ -210,10 +218,12 @@ void NavCore::reset_session(bool preserve_network) {
   const NetworkState network =
       preserve_network ? view_.network : NetworkState::Offline;
   const DisplayPage display_page = view_.display_page;
+  const std::uint8_t map_zoom_level = view_.map_zoom_level;
   view_ = {};
   view_.state = NavState::Idle;
   view_.network = network;
   view_.display_page = display_page;
+  view_.map_zoom_level = map_zoom_level;
   view_.gnss_stale = true;
   route_ = {};
   cumulative_distance_m_.clear();
@@ -559,8 +569,11 @@ void NavCore::update_route_view(const Gcj02Point& position,
   // 24-point window ended inside residential exits, while stretching those
   // samples skipped close turns and drew diagonals across adjacent streets.
   // Retain provider corners with a bounded geometric error instead.
-  constexpr double kBehindRiderM = 55.0;
-  constexpr double kMapRadiusM = 500.0;
+  // At zoom 14 the display covers twice the ground: the window, the recoil
+  // behind the rider and the tolerated error scale with it, in screen terms.
+  const double zoom_scale = map_zoom_scale(view_.map_zoom_level);
+  const double behind_rider_m = 55.0 * zoom_scale;
+  const double map_radius_m = 500.0 * zoom_scale;
   constexpr double kMaximumAheadM = 1'600.0;
   const double geometry_total_m = cumulative_distance_m_.back();
   const double route_total_m = route_.total_distance_m > 0.0
@@ -570,7 +583,7 @@ void NavCore::update_route_view(const Gcj02Point& position,
       std::clamp(route_progress_m, 0.0, route_total_m) *
       geometry_total_m / route_total_m;
   const double first_geometry_distance_m =
-      std::max(0.0, geometry_progress_m - kBehindRiderM);
+      std::max(0.0, geometry_progress_m - behind_rider_m);
   const double last_geometry_distance_m = std::min(
       geometry_total_m, geometry_progress_m + kMaximumAheadM);
   const auto point_at_geometry_distance = [this](double offset_m) {
@@ -611,7 +624,7 @@ void NavCore::update_route_view(const Gcj02Point& position,
         std::distance(cumulative_distance_m_.begin(), vertex));
     candidates.push_back(route_.polyline[index]);
     if (*vertex >= geometry_progress_m &&
-        distance_m(position, route_.polyline[index]) >= kMapRadiusM) {
+        distance_m(position, route_.polyline[index]) >= map_radius_m) {
       reached_map_edge = true;
       break;
     }
@@ -620,7 +633,8 @@ void NavCore::update_route_view(const Gcj02Point& position,
     candidates.push_back(point_at_geometry_distance(last_geometry_distance_m));
   }
 
-  const auto indices = route_view_vertex_indices(candidates);
+  const auto indices = route_view_vertex_indices(
+      candidates, kRouteViewSimplificationToleranceM * zoom_scale);
   // If a particularly intricate neighbourhood needs more than 24 corners,
   // reduce the visible horizon. Never drop a required turn to reach farther.
   const std::size_t count = std::min(indices.size(), kRouteViewPointCapacity);
